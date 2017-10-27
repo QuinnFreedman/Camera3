@@ -65,6 +65,7 @@ public class MainActivity extends AppCompatActivity {
         Camera3.PreviewSession previewSession = cameraManager.createPreviewSession(
                 previewTexture,
                 null,
+                new Size(200,200),
                 new Camera3.PreviewSizeCallback() {
                     @Override
                     public void previewSizeSelected(int orientation, Size size) {
@@ -79,7 +80,7 @@ public class MainActivity extends AppCompatActivity {
                     }
                 }
         );
-        cameraManager.startCaptureSession(cameraId, previewSession);
+        cameraManager.startCaptureSession(cameraId, previewSession, null);
     }
 
     @Override
