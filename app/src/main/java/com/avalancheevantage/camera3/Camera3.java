@@ -46,7 +46,7 @@ public class Camera3 {
     private Semaphore mCameraOpenCloseLock = new Semaphore(1);
 
     /**
-     * A {@link CameraCaptureSession } for camera preview.
+     * A {@link CameraCaptureSession} for camera preview.
      */
     private CameraCaptureSession mCaptureSession;
 
@@ -62,11 +62,13 @@ public class Camera3 {
     private Activity mActivity;
 //    private Integer mSensorOrientation;
     private Size mPreviewSize;
-    private TextureView mTextureView;
+//    private TextureView mTextureView;
     private CaptureRequest.Builder mPreviewRequestBuilder;
 
+//    @Nullable
+//    private PreviewSizeCallback mPreviewSizeSelectedCallback;
     @Nullable
-    private PreviewSizeCallback mPreviewSizeSelectedCallback;
+    private PreviewSession mPreviewSession;
     @NonNull
     private ErrorHandler mErrorHandler;
     private CaptureRequest mPreviewRequest;
@@ -96,26 +98,39 @@ public class Camera3 {
         }
     }
 
-    public void startPreview(TextureView previewTextureView,
-                             String cameraId,
-                             @Nullable CaptureRequest.Builder previewRequest,
-                             @Nullable PreviewSizeCallback previewSizeSelected) {
+//    public void startPreview(TextureView previewTextureView,
+//                             String cameraId,
+//                             @Nullable CaptureRequest.Builder previewRequest,
+//                             @Nullable PreviewSizeCallback previewSizeSelected) {
+//        mErrorHandler.info("starting preview");
+//
+//        mTextureView = previewTextureView;
+//        mPreviewRequestBuilder = previewRequest;
+//        this.mPreviewSizeSelectedCallback = previewSizeSelected;
+//
+//        if (previewTextureView.isAvailable()) {
+//            openCamera(cameraId, previewTextureView.getWidth(), previewTextureView.getHeight());
+//        } else {
+//            previewTextureView.setSurfaceTextureListener(new PreviewTextureListener(cameraId));
+//        }
+//
+//    }
+
+    public void startCaptureSession(@NonNull String cameraId,
+                                    @Nullable PreviewSession previewSession) {
         mErrorHandler.info("starting preview");
 
-        mTextureView = previewTextureView;
-        mPreviewRequestBuilder = previewRequest;
-        this.mPreviewSizeSelectedCallback = previewSizeSelected;
+        mPreviewSession = previewSession;
 
-        if (previewTextureView.isAvailable()) {
-            openCamera(cameraId, previewTextureView.getWidth(), previewTextureView.getHeight());
-        } else {
-            previewTextureView.setSurfaceTextureListener(new PreviewTextureListener(cameraId));
+        if (previewSession != null) {
+            TextureView previewTextureView = previewSession.getTextureView();
+
+            if (previewTextureView.isAvailable()) {
+                openCamera(cameraId, previewTextureView.getWidth(), previewTextureView.getHeight());
+            } else {
+                previewTextureView.setSurfaceTextureListener(new PreviewTextureListener(cameraId));
+            }
         }
-
-    }
-
-    public void startCaptureSession(String cameraId, PreviewSession previewSession) {
-
     }
 
     public void start() {
@@ -297,17 +312,20 @@ public class Camera3 {
             maxPreviewHeight = MAX_PREVIEW_HEIGHT;
         }
 
-        // Danger, W.R.! Attempting to use too large a preview size could  exceed the camera
-        // bus' bandwidth limitation, resulting in gorgeous previews but the storage of
-        // garbage capture data.
-        mPreviewSize = chooseOptimalSize(map.getOutputSizes(SurfaceTexture.class),
-                rotatedPreviewWidth, rotatedPreviewHeight, maxPreviewWidth,
-                maxPreviewHeight, largest);
+        if (mPreviewSession != null) {
+            // Danger, W.R.! Attempting to use too large a preview size could  exceed the camera
+            // bus' bandwidth limitation, resulting in gorgeous previews but the storage of
+            // garbage capture data.
+            mPreviewSize = chooseOptimalSize(map.getOutputSizes(SurfaceTexture.class),
+                    rotatedPreviewWidth, rotatedPreviewHeight, maxPreviewWidth,
+                    maxPreviewHeight, largest);
 
-        //notify the user what preview size we chose
-        if (mPreviewSizeSelectedCallback != null) {
-            int orientation = mActivity.getResources().getConfiguration().orientation;
-            mPreviewSizeSelectedCallback.previewSizeSelected(orientation, mPreviewSize);
+            //notify the user what preview size we chose
+            PreviewSizeCallback sizeCallback = mPreviewSession.getPreviewSizeSelectedCallback();
+            if (sizeCallback != null) {
+                int orientation = mActivity.getResources().getConfiguration().orientation;
+                sizeCallback.previewSizeSelected(orientation, mPreviewSize);
+            }
         }
 
         /*// Check if the flash is supported.
@@ -330,7 +348,7 @@ public class Camera3 {
      * @param viewHeight The height of `mTextureView`
      */
     private void configureTransform(int viewWidth, int viewHeight) {
-        if (mTextureView == null) {
+        if (mPreviewSession.getTextureView() == null) {
             mErrorHandler.error("textureView is null", null);
             return;
         } else if (mPreviewSize == null) {
@@ -357,7 +375,7 @@ public class Camera3 {
         } else if (Surface.ROTATION_180 == rotation) {
             matrix.postRotate(180, centerX, centerY);
         }
-        mTextureView.setTransform(matrix);
+        mPreviewSession.getTextureView().setTransform(matrix);
     }
 
     /**
@@ -413,22 +431,30 @@ public class Camera3 {
      * Creates a new {@link CameraCaptureSession} for camera preview.
      */
     private void createCameraPreviewSession() {
+        if (mPreviewSession == null) {
+            return;
+        }
+        SurfaceTexture texture = mPreviewSession.getTextureView().getSurfaceTexture();
+        if (texture == null) {
+            mErrorHandler.error(
+                    "previewSession.getTextureView().getSurfaceTexture() is null",
+                    null);
+            return;
+        }
+
+        // We configure the size of default buffer to be the size of camera preview we want.
+        texture.setDefaultBufferSize(mPreviewSize.getWidth(), mPreviewSize.getHeight());
+
+        // This is the output Surface we need to start preview.
+        Surface surface = new Surface(texture);
+
         try {
-            SurfaceTexture texture = mTextureView.getSurfaceTexture();
-            assert texture != null; //TODO
-
-            // We configure the size of default buffer to be the size of camera preview we want.
-            texture.setDefaultBufferSize(mPreviewSize.getWidth(), mPreviewSize.getHeight());
-
-            // This is the output Surface we need to start preview.
-            Surface surface = new Surface(texture);
-
             // We set up a CaptureRequest.Builder with the output Surface.
-            if (mPreviewRequestBuilder == null) {
-                mPreviewRequestBuilder
-                        = mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
-            }
+            mPreviewRequestBuilder = mPreviewSession.getPreviewRequest() == null ?
+                    mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW) :
+                    mPreviewSession.getPreviewRequest();
             mPreviewRequestBuilder.addTarget(surface);
+
 
             // Create a CameraCaptureSession for camera preview.
             mCameraDevice.createCaptureSession(Arrays.asList(surface),//TODO uncomment: , mImageReader.getSurface()),
@@ -444,29 +470,31 @@ public class Camera3 {
                             // When the session is ready, we start displaying the preview.
                             mCaptureSession = cameraCaptureSession;
                             try {
-                                // Auto focus should be continuous for camera preview.
-                                //TODO allow user to set this
-                                mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_MODE,
-                                        CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
+                                if (mPreviewSession.getPreviewRequest() == null) {
+                                    // Auto focus should be continuous for camera preview.
+                                    mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_MODE,
+                                            CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
+                                }
 
                                 // Finally, we start displaying the camera preview.
                                 mPreviewRequest = mPreviewRequestBuilder.build();
                                 mCaptureSession.setRepeatingRequest(mPreviewRequest,
                                         mCaptureCallback, mBackgroundHandler);
                             } catch (CameraAccessException e) {
-                                e.printStackTrace();
+                                mErrorHandler.error("Camera Access Exception", e);
                             }
                         }
 
                         @Override
                         public void onConfigureFailed(
                                 @NonNull CameraCaptureSession cameraCaptureSession) {
-                            //TODO log error
+                            mErrorHandler.error(
+                                    "Failed to configure CameraCaptureSession", null);
                         }
                     }, null
             );
         } catch (CameraAccessException e) {
-            e.printStackTrace();
+            mErrorHandler.error("Camera Access Exception", e);
         }
     }
 
@@ -578,9 +606,38 @@ public class Camera3 {
         void previewSizeSelected(int orientation, Size previewSize);
     }
 
-    public class PreviewSession {
-        PreviewSession() {
+    public static class PreviewSession {
+        @NonNull
+        private final TextureView previewTextureView;
+        @Nullable
+        private final CaptureRequest.Builder previewRequest;
+        @Nullable
+        private final PreviewSizeCallback previewSizeSelected;
 
+        @NonNull
+        public TextureView getTextureView() {
+            return previewTextureView;
+        }
+
+        @Nullable
+        public CaptureRequest.Builder getPreviewRequest() {
+            return previewRequest;
+        }
+
+        @Nullable
+        public PreviewSizeCallback getPreviewSizeSelectedCallback() {
+            return previewSizeSelected;
+        }
+
+        PreviewSession(@NonNull TextureView previewTextureView,
+                       @Nullable CaptureRequest.Builder previewRequest,
+                       @Nullable PreviewSizeCallback previewSizeSelected) {
+//            if (previewTextureView == null) {
+//                throw new IllegalArgumentException("previewTextureView cannot be null");
+//            }
+            this.previewTextureView = previewTextureView;
+            this.previewRequest = previewRequest;
+            this.previewSizeSelected = previewSizeSelected;
         }
     }
 }
