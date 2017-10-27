@@ -5,9 +5,9 @@
         xmlns:app="http://schemas.android.com/apk/res-auto"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        tools:context="com.avalancheevantage.camera3.MainActivity">
+        tools:context="com.avalancheevantage.camera3Demo.MainActivity">
 
-    <com.avalancheevantage.camera3.AutoFitTextureView
+    <com.avalancheevantage.camera3Demo.AutoFitTextureView
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:id="@+id/preview"/>

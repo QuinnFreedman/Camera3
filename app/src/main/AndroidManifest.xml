@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-          package="com.avalancheevantage.camera3">
+          package="com.avalancheevantage.camera3Demo">
 
     <uses-permission android:name="android.permission.CAMERA"/>
     <application

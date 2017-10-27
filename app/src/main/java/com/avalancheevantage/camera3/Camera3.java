@@ -57,7 +57,7 @@ public class Camera3 {
 
     private HandlerThread mBackgroundThread;
     private Handler mBackgroundHandler;
-    private ImageReader mImageReader;
+//    private ImageReader mImageReader;
 
     private Activity mActivity;
 //    private Integer mSensorOrientation;
@@ -69,6 +69,8 @@ public class Camera3 {
 //    private PreviewSizeCallback mPreviewSizeSelectedCallback;
     @Nullable
     private PreviewSession mPreviewSession;
+    @NonNull
+    private List<StillImageCaptureSession> mStillCaptureSessions = new ArrayList<>();
     @NonNull
     private ErrorHandler mErrorHandler;
     private CaptureRequest mPreviewRequest;
@@ -98,24 +100,6 @@ public class Camera3 {
         }
     }
 
-//    public void startPreview(TextureView previewTextureView,
-//                             String cameraId,
-//                             @Nullable CaptureRequest.Builder previewRequest,
-//                             @Nullable PreviewSizeCallback previewSizeSelected) {
-//        mErrorHandler.info("starting preview");
-//
-//        mTextureView = previewTextureView;
-//        mPreviewRequestBuilder = previewRequest;
-//        this.mPreviewSizeSelectedCallback = previewSizeSelected;
-//
-//        if (previewTextureView.isAvailable()) {
-//            openCamera(cameraId, previewTextureView.getWidth(), previewTextureView.getHeight());
-//        } else {
-//            previewTextureView.setSurfaceTextureListener(new PreviewTextureListener(cameraId));
-//        }
-//
-//    }
-
     public void startCaptureSession(@NonNull String cameraId,
                                     @Nullable PreviewSession previewSession) {
         mErrorHandler.info("starting preview");
@@ -143,10 +127,10 @@ public class Camera3 {
         startBackgroundThread();
     }
 
-    public void pause() {
-        mErrorHandler.info("pause");
+    public void stop() {
+        mErrorHandler.info("stop");
         if (!this.started) {
-            mErrorHandler.warning("Calling `pause()` when Camera3 is already paused.");
+            mErrorHandler.warning("Calling `stop()` when Camera3 is already stopped.");
             return;
         }
         closeCamera();
@@ -158,12 +142,10 @@ public class Camera3 {
         mErrorHandler.info("opening camera");
         if (ContextCompat.checkSelfPermission(mActivity, Manifest.permission.CAMERA)
                 != PackageManager.PERMISSION_GRANTED) {
-//            throw new CameraAccessException(CameraAccessException.CAMERA_ERROR,
-//                    "Camera Permission must be obtained by activity before starting Camera3");
             mErrorHandler.error(
                     "Camera Permission must be obtained by activity before starting Camera3",
                     null);
-
+            return;
         }
         setUpCameraOutputs(cameraId, width, height);
         configureTransform(width, height);
@@ -215,9 +197,9 @@ public class Camera3 {
                 mCameraDevice.close();
                 mCameraDevice = null;
             }
-            if (mImageReader != null) {
-                mImageReader.close();
-                mImageReader = null;
+            for (StillImageCaptureSession imageCaptureSession : mStillCaptureSessions) {
+                imageCaptureSession.closeImageReader();
+
             }
         } catch (InterruptedException e) {
             throw new RuntimeException("Interrupted while trying to lock camera closing.", e);
@@ -606,6 +588,12 @@ public class Camera3 {
         void previewSizeSelected(int orientation, Size previewSize);
     }
 
+    public PreviewSession createPreviewSession(@NonNull TextureView previewTextureView,
+                                               @Nullable CaptureRequest.Builder previewRequest,
+                                               @Nullable PreviewSizeCallback previewSizeSelected) {
+        return new PreviewSession(previewTextureView, previewRequest, previewSizeSelected);
+    }
+
     public static class PreviewSession {
         @NonNull
         private final TextureView previewTextureView;
@@ -629,15 +617,59 @@ public class Camera3 {
             return previewSizeSelected;
         }
 
-        PreviewSession(@NonNull TextureView previewTextureView,
+        private PreviewSession(@NonNull TextureView previewTextureView,
                        @Nullable CaptureRequest.Builder previewRequest,
                        @Nullable PreviewSizeCallback previewSizeSelected) {
-//            if (previewTextureView == null) {
-//                throw new IllegalArgumentException("previewTextureView cannot be null");
-//            }
+            if (previewTextureView == null) {
+                throw new IllegalArgumentException("previewTextureView cannot be null");
+            }
             this.previewTextureView = previewTextureView;
             this.previewRequest = previewRequest;
             this.previewSizeSelected = previewSizeSelected;
+        }
+    }
+
+    /**
+     * @param imageSize The size of the image to capture //TODO how to get this? when is it checked?
+     * @param imageFormat The format to capture in (from {@link android.graphics.ImageFormat}). E.g. {@link android.graphics.ImageFormat.JPEG}
+     */
+    public StillImageCaptureSession
+    createStillImageCaptureSession(Size imageSize, int imageFormat,
+                                   ImageReader.OnImageAvailableListener onImageAvailableListener) {
+        return new StillImageCaptureSession(
+                imageSize, imageFormat,
+                onImageAvailableListener,
+                mBackgroundHandler, mErrorHandler);
+    };
+
+    public static class StillImageCaptureSession {
+        private final ErrorHandler errorHandler;
+//        private final Size imageSize;
+//        private final int imageFormat;
+        private ImageReader imageReader;
+
+        private StillImageCaptureSession(Size imageSize, int imageFormat,
+                                        ImageReader.OnImageAvailableListener onImageAvailableListener,
+                                        Handler backgroundHandler,
+                                        ErrorHandler errorHandler) {
+            this.errorHandler = errorHandler;
+//            this.imageSize = imageSize;
+//            this.imageFormat = imageFormat;
+            this.imageReader = ImageReader.newInstance(imageSize.getWidth(), imageSize.getHeight(),
+                    imageFormat, 2);
+            this.imageReader.setOnImageAvailableListener(
+                    onImageAvailableListener, backgroundHandler);
+        }
+
+        public ImageReader getImageReader() {
+            return imageReader;
+        }
+
+        private void closeImageReader() {
+            if (this.imageReader != null) {
+                this.imageReader.close();
+                this.imageReader = null;
+            }
         }
     }
 }

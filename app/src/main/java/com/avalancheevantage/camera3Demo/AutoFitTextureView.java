@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.avalancheevantage.camera3;
+package com.avalancheevantage.camera3Demo;
 
 import android.content.Context;
 import android.util.AttributeSet;

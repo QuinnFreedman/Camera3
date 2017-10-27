@@ -1,4 +1,4 @@
-package com.avalancheevantage.camera3;
+package com.avalancheevantage.camera3Demo;
 
 import android.Manifest;
 import android.content.pm.PackageManager;
@@ -11,9 +11,10 @@ import android.os.Bundle;
 import android.util.Log;
 import android.support.v4.content.ContextCompat;
 import android.util.Size;
+import com.avalancheevantage.camera3.Camera3;
 
 
-class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
     private static final int REQUEST_CAMERA_PERMISSION = 999;
 
@@ -61,7 +62,7 @@ class MainActivity extends AppCompatActivity {
         }
         final AutoFitTextureView previewTexture = findViewById(R.id.preview);
 
-        Camera3.PreviewSession previewSession = new Camera3.PreviewSession(
+        Camera3.PreviewSession previewSession = cameraManager.createPreviewSession(
                 previewTexture,
                 null,
                 new Camera3.PreviewSizeCallback() {
@@ -84,6 +85,6 @@ class MainActivity extends AppCompatActivity {
     @Override
     protected void onPause() {
         super.onPause();
-        cameraManager.pause();
+        cameraManager.stop();
     }
 }
