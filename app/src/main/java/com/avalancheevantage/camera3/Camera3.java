@@ -103,27 +103,31 @@ public class Camera3 {
     public void startCaptureSession(@NonNull String cameraId,
                                     @Nullable PreviewSession previewSession,
                                     @Nullable List<StillImageCaptureSession> stillCaptureSessions) {
-        mErrorHandler.info("starting preview");
+        try {
+            mErrorHandler.info("starting preview");
 
-        mPreviewSession = previewSession;
+            mPreviewSession = previewSession;
 
-        //TODO: still start session if preview is null
-        if (previewSession != null) {
-            TextureView previewTextureView = previewSession.getTextureView();
+            //TODO: still start session if preview is null
+            if (previewSession != null) {
+                TextureView previewTextureView = previewSession.getTextureView();
 
-            if (previewTextureView.isAvailable()) {
-                openCamera(cameraId,
-                        new Size(previewTextureView.getWidth(),
-                                previewTextureView.getHeight()));
-            } else {
-                previewTextureView.setSurfaceTextureListener(new PreviewTextureListener(cameraId));
+                if (previewTextureView.isAvailable()) {
+                    openCamera(cameraId,
+                            new Size(previewTextureView.getWidth(),
+                                    previewTextureView.getHeight()));
+                } else {
+                    previewTextureView.setSurfaceTextureListener(new PreviewTextureListener(cameraId));
+                }
             }
-        }
 
-        if (stillCaptureSessions != null) {
-            mStillCaptureSessions = stillCaptureSessions;
-        } else {
-            mStillCaptureSessions = new ArrayList<>();
+            if (stillCaptureSessions != null) {
+                mStillCaptureSessions = stillCaptureSessions;
+            } else {
+                mStillCaptureSessions = new ArrayList<>();
+            }
+        } catch (Exception e) {
+            mErrorHandler.error("Something went wrong", e);
         }
     }
 
@@ -142,18 +146,23 @@ public class Camera3 {
     }
 
     public void stop() {
-        mErrorHandler.info("stop");
-        if (!this.started) {
-            mErrorHandler.warning("Calling `stop()` when Camera3 is already stopped.");
-            return;
+        try {
+            mErrorHandler.info("stop");
+            if (!this.started) {
+                mErrorHandler.warning("Calling `stop()` when Camera3 is already stopped.");
+                return;
+            }
+            closeCamera();
+            stopBackgroundThread();
+            this.started = false;
+        } catch (Exception e) {
+            mErrorHandler.error("Something went wrong", e);
         }
-        closeCamera();
-        stopBackgroundThread();
-        this.started = false;
     }
 
     private void openCamera(String cameraId, Size previewTextureSize) /*throws CameraAccessException*/ {
         mErrorHandler.info("opening camera");
+        mErrorHandler.info("Preview texture size == "+previewTextureSize);
         if (ContextCompat.checkSelfPermission(mActivity, Manifest.permission.CAMERA)
                 != PackageManager.PERMISSION_GRANTED) {
             mErrorHandler.error(
@@ -216,7 +225,7 @@ public class Camera3 {
 
             }
         } catch (InterruptedException e) {
-            throw new RuntimeException("Interrupted while trying to lock camera closing.", e);
+            mErrorHandler.error("Interrupted while trying to close camera.", e);
         } finally {
             mCameraOpenCloseLock.release();
         }
@@ -288,16 +297,14 @@ public class Camera3 {
 
         Point displaySize = new Point();
         mActivity.getWindowManager().getDefaultDisplay().getSize(displaySize);
-        Size preferredPreviewSize = mPreviewSession.getPreferredSize() != null ?
-                mPreviewSession.getPreferredSize() : previewTextureSize;
-        int rotatedPreviewWidth = preferredPreviewSize.getWidth();
-        int rotatedPreviewHeight = preferredPreviewSize.getHeight();
+        int rotatedPreviewWidth = previewTextureSize.getWidth();
+        int rotatedPreviewHeight = previewTextureSize.getHeight();
         int maxPreviewWidth = displaySize.x;
         int maxPreviewHeight = displaySize.y;
 
         if (swappedDimensions) {
-            rotatedPreviewWidth = preferredPreviewSize.getHeight();
-            rotatedPreviewHeight = preferredPreviewSize.getWidth();
+            rotatedPreviewWidth = previewTextureSize.getHeight();
+            rotatedPreviewHeight = previewTextureSize.getWidth();
             maxPreviewWidth = displaySize.y;
             maxPreviewHeight = displaySize.x;
         }
@@ -318,7 +325,7 @@ public class Camera3 {
             Size optimalSize = chooseOptimalSize(map.getOutputSizes(SurfaceTexture.class),
                     rotatedPreviewWidth, rotatedPreviewHeight, maxPreviewWidth,
                     maxPreviewHeight, largest);
-            mPreviewSession.setActualPreviewSize(optimalSize);
+            mPreviewSession.setPreviewSize(optimalSize);
 
             //notify the user what preview size we chose
             PreviewSizeCallback sizeCallback = mPreviewSession.getPreviewSizeSelectedCallback();
@@ -358,8 +365,8 @@ public class Camera3 {
         int viewWidth = previewTextureSize.getWidth();
         int viewHeight = previewTextureSize.getHeight();
 
-        int previewWidth = previewSession.getActualPreviewSize().getWidth();
-        int previewHeight = previewSession.getActualPreviewSize().getHeight();
+        int previewWidth = previewSession.getPreviewSize().getWidth();
+        int previewHeight = previewSession.getPreviewSize().getHeight();
 
         int rotation = mActivity.getWindowManager().getDefaultDisplay().getRotation();
         Matrix matrix = new Matrix();
@@ -438,10 +445,10 @@ public class Camera3 {
             mErrorHandler.error("Internal error: previewSession is null", null);
             return;
         }
-        Size previewSize = previewSession.getActualPreviewSize();
+        Size previewSize = previewSession.getPreviewSize();
         if (previewSize == null) {
             mErrorHandler.error(
-                    "Internal error: previewSession.actualPreviewSize is null", null);
+                    "Internal error: previewSession.previewSize is null", null);
             return;
         }
 
@@ -623,12 +630,10 @@ public class Camera3 {
 
     public PreviewSession createPreviewSession(@NonNull TextureView previewTextureView,
                                                @Nullable CaptureRequest.Builder previewRequest,
-                                               @Nullable Size preferredSize,
                                                @Nullable PreviewSizeCallback previewSizeSelected) {
         return new PreviewSession(
                 previewTextureView,
                 previewRequest,
-                preferredSize,
                 previewSizeSelected);
     }
 
@@ -640,10 +645,8 @@ public class Camera3 {
         @Nullable
         private final PreviewSizeCallback previewSizeSelected;
 
-        //size of the capture request (from list of available sizes)
-        private Size actualPreviewSize;
-        @Nullable
-        private Size preferredSize;
+        //actual size of the capture request (from list of available sizes)
+        private Size previewSize;
 
         @NonNull
         TextureView getTextureView() {
@@ -660,24 +663,17 @@ public class Camera3 {
             return previewSizeSelected;
         }
 
-        @Nullable
-        Size getPreferredSize() {
-            return preferredSize;
+        void setPreviewSize(Size previewSize) {
+            this.previewSize = previewSize;
         }
 
-        void setActualPreviewSize(Size actualPreviewSize) {
-            this.actualPreviewSize = actualPreviewSize;
-        }
-
-        Size getActualPreviewSize() {
-            return actualPreviewSize;
+        Size getPreviewSize() {
+            return previewSize;
         }
 
         private PreviewSession(@NonNull TextureView previewTextureView,
                        @Nullable CaptureRequest.Builder previewRequest,
-                       @Nullable Size preferredSize,
                        @Nullable PreviewSizeCallback previewSizeSelected) {
-            this.preferredSize = preferredSize;
             if (previewTextureView == null) {
                 throw new IllegalArgumentException("previewTextureView cannot be null");
             }
