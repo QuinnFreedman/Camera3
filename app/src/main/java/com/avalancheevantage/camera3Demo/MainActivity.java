@@ -3,7 +3,9 @@ package com.avalancheevantage.camera3Demo;
 import android.Manifest;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
+import android.graphics.ImageFormat;
 import android.hardware.camera2.CameraAccessException;
+import android.media.ImageReader;
 import android.os.Build;
 import android.support.annotation.NonNull;
 import android.support.v7.app.AppCompatActivity;
@@ -11,7 +13,12 @@ import android.os.Bundle;
 import android.util.Log;
 import android.support.v4.content.ContextCompat;
 import android.util.Size;
+import android.view.MotionEvent;
+import android.view.View;
+import android.widget.Toast;
 import com.avalancheevantage.camera3.Camera3;
+
+import java.util.Collections;
 
 
 public class MainActivity extends AppCompatActivity {
@@ -79,7 +86,29 @@ public class MainActivity extends AppCompatActivity {
                     }
                 }
         );
-        cameraManager.startCaptureSession(cameraId, previewSession, null);
+        final Camera3.StillImageCaptureSession captureSession =
+                cameraManager.createStillImageCaptureSession(ImageFormat.JPEG,
+                        cameraManager.getLargestAvailableSize(cameraId, ImageFormat.JPEG),
+                        new ImageReader.OnImageAvailableListener() {
+                            @Override
+                            public void onImageAvailable(ImageReader reader) {
+                                Log.d(TAG, "***********************************************");
+                                Log.d(TAG, "IMAGE AVAILABLE"); //TODO
+                                Log.d(TAG, "***********************************************");
+                                Toast.makeText(MainActivity.this, "Image available", Toast.LENGTH_LONG).show();
+                            }
+                        });
+        cameraManager.startCaptureSession(cameraId, previewSession, Collections.singletonList(captureSession));
+        findViewById(R.id.capture).setOnTouchListener(new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+                cameraManager.captureImage(captureSession,
+                        Camera3.PRECAPTURE_CONFIG_TRIGGER_AUTO_FOCUS,
+                        Camera3.CAPTURE_CONFIG_DEFAULT);
+                v.performClick();
+                return false;
+            }
+        });
     }
 
     @Override
