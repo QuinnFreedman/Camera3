@@ -39,13 +39,14 @@ public class MainActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         Log.d(TAG, "onResume");
-        int permissionCheck = ContextCompat.checkSelfPermission(this,
-                Manifest.permission.CAMERA);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M &&
-                permissionCheck == PackageManager.PERMISSION_DENIED) {
+        if (cameraManager.hasCameraPermission()) {
+            onPermissionGranted();
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             requestPermissions(new String[]{Manifest.permission.CAMERA}, REQUEST_CAMERA_PERMISSION);
         } else {
-            onPermissionGranted();
+            Toast.makeText(this,
+                    "Oops! This app does not have permission to access your camera",
+                    Toast.LENGTH_LONG).show();
         }
     }
 

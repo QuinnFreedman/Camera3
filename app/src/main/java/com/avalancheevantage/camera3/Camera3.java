@@ -910,16 +910,17 @@ public class Camera3 {
         return manager.getCameraCharacteristics(cameraId);
     }
 
+    @NonNull
     public Collection<Size> getAvailableSizes(String cameraId, int format) {
         CameraCharacteristics characteristics;
         try {
             characteristics = getCameraInfo(cameraId);
         } catch (CameraAccessException e) {
             reportCameraAccessException(e);
-            return null;
+            return Collections.emptyList();
         }
         if (characteristics == null) {
-            return null;
+            return Collections.emptyList();
         }
         StreamConfigurationMap map = characteristics.get(
                 CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
@@ -928,7 +929,7 @@ public class Camera3 {
                     "CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP was null " +
                             "for the given cameraId",
                     null);
-            return null;
+            return Collections.emptyList();
         }
         return Collections.unmodifiableCollection(
                 Arrays.asList(map.getOutputSizes(format)));
@@ -1122,4 +1123,12 @@ public class Camera3 {
             capture.configure(request);
         }
     }
+
+    public boolean hasCameraPermission() {
+        return ContextCompat.checkSelfPermission(mActivity, Manifest.permission.CAMERA)
+                == PackageManager.PERMISSION_GRANTED;
+    }
+
+    //TODO: implement a acquirePermission(callback) convenience method similar to Dexter
+    //https://github.com/Karumi/Dexter/tree/master/dexter/src/main/java/com/karumi/dexter
 }
