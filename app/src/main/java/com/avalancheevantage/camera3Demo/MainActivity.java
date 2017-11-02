@@ -18,6 +18,8 @@ import android.view.TextureView;
 import android.view.View;
 import android.widget.Toast;
 import com.avalancheevantage.camera3.Camera3;
+import com.avalancheevantage.camera3.PreviewSession;
+import com.avalancheevantage.camera3.StillImageCaptureSession;
 
 import java.util.Collections;
 
@@ -70,7 +72,7 @@ public class MainActivity extends AppCompatActivity {
         final AutoFitTextureView previewTexture = findViewById(R.id.preview);
 //        final TextureView previewTexture = findViewById(R.id.preview);
 
-        Camera3.PreviewSession previewSession = cameraManager.createPreviewSession(
+        PreviewSession previewSession = cameraManager.createPreviewSession(
                 previewTexture,
                 null,
                 new Camera3.PreviewSizeCallback() {
@@ -87,7 +89,7 @@ public class MainActivity extends AppCompatActivity {
                     }
                 }
         );
-        final Camera3.StillImageCaptureSession captureSession =
+        final StillImageCaptureSession captureSession =
                 cameraManager.createStillImageCaptureSession(ImageFormat.JPEG,
                         cameraManager.getLargestAvailableSize(cameraId, ImageFormat.JPEG),
                         new ImageReader.OnImageAvailableListener() {

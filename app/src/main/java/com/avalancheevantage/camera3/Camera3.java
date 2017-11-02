@@ -23,6 +23,9 @@ import java.util.*;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
+import static com.avalancheevantage.camera3.PrivateUtils.configureTransform;
+import static com.avalancheevantage.camera3.PrivateUtils.setUpPreviewOutput;
+
 /**
  * Camera3 is a wrapper around the Android Camera2 API. It is an attempt to
  * provide a single, much simpler, much safer interface to the notoriously
@@ -41,12 +44,12 @@ public class Camera3 {
     /**
      * Max preview width that is guaranteed by Camera2 API
      */
-    private static final int MAX_PREVIEW_WIDTH = 1920;
+    static final int MAX_PREVIEW_WIDTH = 1920;
 
     /**
      * Max preview height that is guaranteed by Camera2 API
      */
-    private static final int MAX_PREVIEW_HEIGHT = 1080;
+    static final int MAX_PREVIEW_HEIGHT = 1080;
 
     /**
      * Camera state: Showing camera preview.
@@ -83,7 +86,7 @@ public class Camera3 {
      * A {@link Semaphore} to prevent the app from exiting before closing the camera.
      */
     private Semaphore mCameraOpenCloseLock = new Semaphore(1);
-    private static final String NULL_MANAGER_MESSAGE = "No camera manager. " +
+    static final String NULL_MANAGER_MESSAGE = "No camera manager. " +
             "`getSystemService(Context.CAMERA_SERVICE)` returned `null`";
 
     /**
@@ -132,6 +135,27 @@ public class Camera3 {
                 }
             };
     public static final ErrorHandler ERROR_HANDLER_DEFAULT = null;
+
+    @Nullable
+    private CameraCharacteristics getCameraCharacteristics(String cameraId) {
+        return PrivateUtils.getCameraCharacteristics(cameraId, mActivity, mErrorHandler);
+    }
+
+    @Nullable
+    private Integer setSensorOrientation(String cameraId) {
+        CameraCharacteristics characteristics = getCameraCharacteristics(cameraId);
+        if (characteristics == null) {
+            mErrorHandler.error("Camera Characteristics were null", null);
+            return null;
+        }
+        mSensorOrientation = characteristics.get(CameraCharacteristics.SENSOR_ORIENTATION);
+        if (mSensorOrientation == null) {
+            mErrorHandler.error(
+                    "Invalid Camera Configuration: " +
+                            "no field `SENSOR_ORIENTATION` for the specified cameraId", null);
+        }
+        return mSensorOrientation;
+    }
 
 
     public Camera3(@NonNull Activity activity, @Nullable ErrorHandler errorHandler) {
@@ -244,12 +268,17 @@ public class Camera3 {
         mErrorHandler.info("opening camera");
         mErrorHandler.info("Preview texture size == " + previewTextureSize);
 
-        setUpCameraOutputs(cameraId, previewTextureSize);
+        Integer sensorOrientation = setSensorOrientation(cameraId);
+        if (sensorOrientation == null) {
+            return;
+        }
         if (mPreviewSession != null) {
+            setUpPreviewOutput(cameraId, previewTextureSize, sensorOrientation, mPreviewSession,
+                    mActivity, mErrorHandler);
             if (previewTextureSize == null) {
                 mErrorHandler.warning("Preview Session is not null but previewTextureSize is null");
             } else {
-                configureTransform(mPreviewSession, previewTextureSize);
+                configureTransform(mPreviewSession, previewTextureSize, mActivity, mErrorHandler);
             }
         }
         CameraManager manager = (CameraManager) mActivity.getSystemService(Context.CAMERA_SERVICE);
@@ -314,210 +343,6 @@ public class Camera3 {
             mErrorHandler.error("Interrupted while trying to close camera.", e);
         } finally {
             mCameraOpenCloseLock.release();
-        }
-    }
-
-    //TODO: refactor to take a PreviewSession, add textureSize as a field of preview session
-    @SuppressWarnings("SuspiciousNameCombination")
-    private void setUpCameraOutputs(String cameraId, @Nullable Size previewTextureSize) {
-        mErrorHandler.info("Configuring camera outputs...");
-        CameraManager manager = (CameraManager) mActivity.getSystemService(Context.CAMERA_SERVICE);
-
-        if (manager == null) {
-            mErrorHandler.error(NULL_MANAGER_MESSAGE, null);
-            return;
-        }
-        CameraCharacteristics characteristics;
-        try {
-            characteristics = manager.getCameraCharacteristics(cameraId);
-        } catch (CameraAccessException e) {
-            mErrorHandler.error("Camera Access Exception", e);
-            return;
-        }
-        StreamConfigurationMap map = characteristics.get(
-                CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
-        if (map == null) {
-            mErrorHandler.error(
-                    "CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP was null " +
-                            "for the given cameraId",
-                    null);
-            return;
-        }
-
-        // Find out if we need to swap dimension to get the preview size relative to sensor
-        // coordinate.
-        int displayRotation = mActivity.getWindowManager().getDefaultDisplay().getRotation();
-        //noinspection ConstantConditions
-        mSensorOrientation = characteristics.get(CameraCharacteristics.SENSOR_ORIENTATION);
-        if (mSensorOrientation == null) {
-            mErrorHandler.error(
-                    "Invalid Camera Configuration: " +
-                            "no field `SENSOR_ORIENTATION` for the specified cameraId", null);
-            return;
-        }
-        boolean swappedDimensions = false;
-        switch (displayRotation) {
-            case Surface.ROTATION_0:
-            case Surface.ROTATION_180:
-                if (mSensorOrientation == 90 || mSensorOrientation == 270) {
-                    swappedDimensions = true;
-                }
-                break;
-            case Surface.ROTATION_90:
-            case Surface.ROTATION_270:
-                if (mSensorOrientation == 0 || mSensorOrientation == 180) {
-                    swappedDimensions = true;
-                }
-                break;
-            default:
-                mErrorHandler.warning("Display rotation is invalid: " + displayRotation);
-        }
-
-        if (mPreviewSession != null) {
-            if (previewTextureSize == null) {
-                mErrorHandler.warning("Preview Session is not null but previewTextureSize is null");
-                return;
-            }
-            Point displaySize = new Point();
-            mActivity.getWindowManager().getDefaultDisplay().getSize(displaySize);
-            int rotatedPreviewWidth = previewTextureSize.getWidth();
-            int rotatedPreviewHeight = previewTextureSize.getHeight();
-            int maxPreviewWidth = displaySize.x;
-            int maxPreviewHeight = displaySize.y;
-
-            if (swappedDimensions) {
-                rotatedPreviewWidth = previewTextureSize.getHeight();
-                rotatedPreviewHeight = previewTextureSize.getWidth();
-                maxPreviewWidth = displaySize.y;
-                maxPreviewHeight = displaySize.x;
-            }
-
-            if (maxPreviewWidth > MAX_PREVIEW_WIDTH) {
-                maxPreviewWidth = MAX_PREVIEW_WIDTH;
-            }
-
-            if (maxPreviewHeight > MAX_PREVIEW_HEIGHT) {
-                maxPreviewHeight = MAX_PREVIEW_HEIGHT;
-            }
-
-            Size largestJpeg = Collections.max(
-                    Arrays.asList(map.getOutputSizes(ImageFormat.JPEG)),
-                    new CompareSizesByArea());
-
-            // Danger, W.R.! Attempting to use too large a preview size could  exceed the camera
-            // bus' bandwidth limitation, resulting in gorgeous previews but the storage of
-            // garbage capture data.
-            //TODO allow the user to specify a preferred preview aspect ratio and size
-            Size optimalSize = chooseOptimalSize(map.getOutputSizes(SurfaceTexture.class),
-                    rotatedPreviewWidth, rotatedPreviewHeight, maxPreviewWidth,
-                    maxPreviewHeight, /*aspect ratio*/ largestJpeg);
-            mPreviewSession.setPreviewSize(optimalSize);
-
-            //notify the user what preview size we chose
-            PreviewSizeCallback sizeCallback = mPreviewSession.getPreviewSizeSelectedCallback();
-            if (sizeCallback != null) {
-                int orientation = mActivity.getResources().getConfiguration().orientation;
-                sizeCallback.previewSizeSelected(orientation, optimalSize);
-            }
-        }
-
-        /*
-        //a npe in here can signal bad support maybe??
-        } catch (NullPointerException e) {
-            throw new RuntimeException("Camera2 API is not supported on this device");
-        }*/
-    }
-
-    /**
-     * Configures the necessary {@link android.graphics.Matrix} transformation for the
-     * TextureView for a PreviewSession
-     *
-     * @param previewSession     The PreviewSession to configure
-     * @param previewTextureSize the size of the texture to transform the preview to fit.
-     */
-    @SuppressWarnings("SuspiciousNameCombination")
-    private void configureTransform(@NonNull PreviewSession previewSession,
-                                    @NonNull Size previewTextureSize) {
-        mErrorHandler.info("Configuring preview transform matrix...");
-        if (previewSession.getTextureView() == null) {
-            mErrorHandler.error("textureView is null", null);
-            return;
-        } else if (mActivity == null) {
-            mErrorHandler.error("activity is null", null);
-            return;
-        }
-        int viewWidth = previewTextureSize.getWidth();
-        int viewHeight = previewTextureSize.getHeight();
-
-        int previewWidth = previewSession.getPreviewSize().getWidth();
-        int previewHeight = previewSession.getPreviewSize().getHeight();
-
-        int rotation = mActivity.getWindowManager().getDefaultDisplay().getRotation();
-        Matrix matrix = new Matrix();
-        RectF viewRect = new RectF(0, 0, viewWidth, viewHeight);
-        RectF bufferRect = new RectF(0, 0, previewHeight, previewWidth);
-        float centerX = viewRect.centerX();
-        float centerY = viewRect.centerY();
-        if (Surface.ROTATION_90 == rotation || Surface.ROTATION_270 == rotation) {
-            bufferRect.offset(centerX - bufferRect.centerX(), centerY - bufferRect.centerY());
-            matrix.setRectToRect(viewRect, bufferRect, Matrix.ScaleToFit.FILL);
-            float scale = Math.max(
-                    (float) viewHeight / previewHeight,
-                    (float) viewWidth / previewWidth);
-            matrix.postScale(scale, scale, centerX, centerY);
-            matrix.postRotate(90 * (rotation - 2), centerX, centerY);
-        } else if (Surface.ROTATION_180 == rotation) {
-            matrix.postRotate(180, centerX, centerY);
-        }
-        previewSession.getTextureView().setTransform(matrix);
-    }
-
-    /**
-     * Given {@code choices} of {@code Size}s supported by a camera, choose the smallest one that
-     * is at least as large as the respective texture view size, and that is at most as large as the
-     * respective max size, and whose aspect ratio matches with the specified value. If such size
-     * doesn't exist, choose the largest one that is at most as large as the respective max size,
-     * and whose aspect ratio matches with the specified value.
-     *
-     * @param choices           The list of sizes that the camera supports for the intended output
-     *                          class
-     * @param textureViewWidth  The width of the texture view relative to sensor coordinate
-     * @param textureViewHeight The height of the texture view relative to sensor coordinate
-     * @param maxWidth          The maximum width that can be chosen
-     * @param maxHeight         The maximum height that can be chosen
-     * @param aspectRatio       The aspect ratio
-     * @return The optimal {@code Size}, or an arbitrary one if none were big enough
-     */
-    private static Size chooseOptimalSize(Size[] choices, int textureViewWidth,
-                                          int textureViewHeight, int maxWidth, int maxHeight, Size aspectRatio) {
-
-        // Collect the supported resolutions that are at least as big as the preview Surface
-        List<Size> bigEnough = new ArrayList<>();
-        // Collect the supported resolutions that are smaller than the preview Surface
-        List<Size> notBigEnough = new ArrayList<>();
-        int w = aspectRatio.getWidth();
-        int h = aspectRatio.getHeight();
-        for (Size option : choices) {
-            if (option.getWidth() <= maxWidth && option.getHeight() <= maxHeight &&
-                    option.getHeight() == option.getWidth() * h / w) {
-                if (option.getWidth() >= textureViewWidth &&
-                        option.getHeight() >= textureViewHeight) {
-                    bigEnough.add(option);
-                } else {
-                    notBigEnough.add(option);
-                }
-            }
-        }
-
-        // Pick the smallest of those big enough. If there is no one big enough, pick the
-        // largest of those not big enough.
-        if (bigEnough.size() > 0) {
-            return Collections.min(bigEnough, new CompareSizesByArea());
-        } else if (notBigEnough.size() > 0) {
-            return Collections.max(notBigEnough, new CompareSizesByArea());
-        } else {
-            Log.e(TAG, "Couldn't find any suitable preview size");
-            return choices[0];
         }
     }
 
@@ -741,7 +566,10 @@ public class Camera3 {
         @Override
         public void onSurfaceTextureSizeChanged(SurfaceTexture texture, int width, int height) {
             if (mPreviewSession != null) {
-                configureTransform(mPreviewSession, new Size(width, height));
+                configureTransform(mPreviewSession,
+                        new Size(width, height),
+                        mActivity,
+                        mErrorHandler);
             }
         }
 
@@ -946,23 +774,10 @@ public class Camera3 {
     }
 
 
-    /**
-     * Compares two {@code Size}s based on their areas.
-     */
-    private static class CompareSizesByArea implements Comparator<Size> {
-
-        @Override
-        public int compare(Size lhs, Size rhs) {
-            // We cast here to ensure the multiplications won't overflow
-            return Long.signum((long) lhs.getWidth() * lhs.getHeight() -
-                    (long) rhs.getWidth() * rhs.getHeight());
-        }
-
-    }
 
     /* Private Utils */
     private void reportCameraAccessException(CameraAccessException e) {
-        mErrorHandler.error("Camera Access Exception", e);
+       PrivateUtils.reportCameraAccessException(e, mErrorHandler);
     }
 
     /* Public Utils */
@@ -1009,15 +824,7 @@ public class Camera3 {
     public Size getLargestAvailableSize(String cameraId, int imageFormat) {
         return Collections.max(
                 getAvailableSizes(cameraId, imageFormat),
-                new CompareSizesByArea());
-    }
-
-    public interface ErrorHandler {
-        void error(String message, Exception e);
-
-        void warning(String message);
-
-        void info(String message);
+                new PrivateUtils.CompareSizesByArea());
     }
 
     public interface PreviewSizeCallback {
@@ -1033,58 +840,6 @@ public class Camera3 {
                 previewSizeSelected);
     }
 
-    public static class PreviewSession {
-        @NonNull
-        private final TextureView previewTextureView;
-        @Nullable
-        private final CaptureRequest.Builder previewRequest;
-        @Nullable
-        private final PreviewSizeCallback previewSizeSelected;
-        private final boolean usesCustomRequest;
-
-        //actual size of the capture request (from list of available sizes)
-        private Size previewSize;
-
-        @NonNull
-        TextureView getTextureView() {
-            return previewTextureView;
-        }
-
-        @Nullable
-        CaptureRequest.Builder getPreviewRequest() {
-            return previewRequest;
-        }
-
-        @Nullable
-        PreviewSizeCallback getPreviewSizeSelectedCallback() {
-            return previewSizeSelected;
-        }
-
-        void setPreviewSize(Size previewSize) {
-            this.previewSize = previewSize;
-        }
-
-        Size getPreviewSize() {
-            return previewSize;
-        }
-
-        private PreviewSession(@NonNull TextureView previewTextureView,
-                               @Nullable CaptureRequest.Builder previewRequest,
-                               @Nullable PreviewSizeCallback previewSizeSelected) {
-            if (previewTextureView == null) {
-                throw new IllegalArgumentException("previewTextureView cannot be null");
-            }
-            this.previewTextureView = previewTextureView;
-            this.previewRequest = previewRequest;
-            this.previewSizeSelected = previewSizeSelected;
-            this.usesCustomRequest = previewRequest == null;
-        }
-
-        boolean usesCustomRequest() {
-            return usesCustomRequest;
-        }
-    }
-
     /**
      * @param imageSize   The size of the image to capture //TODO how to get this? when is it checked?
      * @param imageFormat The format to capture in (from {@link android.graphics.ImageFormat}). E.g. ImageFormat.JPEG
@@ -1093,112 +848,16 @@ public class Camera3 {
     createStillImageCaptureSession(int imageFormat,
                                    @NonNull Size imageSize,
                                    @NonNull ImageReader.OnImageAvailableListener onImageAvailableListener) {
-        // If no size was specified, use the largest available size.
-        if (imageSize == null) {
-            throw new IllegalArgumentException("imageSize cannot be null");
-        }
-        if (onImageAvailableListener == null) {
-            throw new IllegalArgumentException("onImageAvailableListener cannot be null");
-        }
-
         return new StillImageCaptureSession(
                 imageFormat, imageSize,
                 onImageAvailableListener,
                 mBackgroundHandler);
     }
 
-
-    public static class StillImageCaptureSession {
-        private final int imageFormat;
-        @Nullable
-        private Size imageSize;
-        private final ImageReader.OnImageAvailableListener onImageAvailableListener;
-        private final Handler backgroundHandler;
-        private ImageReader imageReader;
-
-        public int getImageFormat() {
-            return imageFormat;
-        }
-
-        @Nullable
-        public Size getImageSize() {
-            return imageSize;
-        }
-
-        private StillImageCaptureSession(int imageFormat,
-                                         @NonNull Size imageSize,
-                                         @NonNull ImageReader.OnImageAvailableListener onImageAvailableListener,
-                                         Handler backgroundHandler) {
-            this.imageFormat = imageFormat;
-            this.onImageAvailableListener = onImageAvailableListener;
-            this.backgroundHandler = backgroundHandler;
-            this.imageSize = imageSize;
-
-            this.imageReader = ImageReader.newInstance(imageSize.getWidth(), imageSize.getHeight(),
-                    imageFormat, 2);
-            this.imageReader.setOnImageAvailableListener(
-                    onImageAvailableListener, backgroundHandler);
-
-        }
-
-        ImageReader getImageReader() {
-            return imageReader;
-        }
-
-        private void closeImageReader() {
-            if (this.imageReader != null) {
-                this.imageReader.close();
-                this.imageReader = null;
-            }
-        }
-    }
-
     public interface ImageCaptureRequestConfiguration {
         void configure(CaptureRequest.Builder request);
     }
 
-    private static class ImageCaptureRequest {
-        @NonNull
-        private final StillImageCaptureSession session;
-        @Nullable
-        private final ImageCaptureRequestConfiguration precapture;
-        @NonNull
-        private final ImageCaptureRequestConfiguration capture;
-        @NonNull
-        private ErrorHandler errorHandler;
-
-        ImageCaptureRequest(@NonNull StillImageCaptureSession session,
-                            @Nullable ImageCaptureRequestConfiguration precapture,
-                            @NonNull ImageCaptureRequestConfiguration capture,
-                            @NonNull ErrorHandler errorHandler) {
-
-            this.session = session;
-            this.precapture = precapture;
-            this.capture = capture;
-            this.errorHandler = errorHandler;
-        }
-
-        @NonNull
-        StillImageCaptureSession getSession() {
-            return session;
-        }
-
-        void configurePrecapture(CaptureRequest.Builder request) {
-            if (precapture == null) {
-                errorHandler.warning("Trying to configure precapture with null config");
-                return;
-            }
-            precapture.configure(request);
-        }
-
-        boolean hasPrecapture() {
-            return precapture != null;
-        }
-
-        void configureCapture(CaptureRequest.Builder request) {
-            capture.configure(request);
-        }
-    }
 
     public boolean hasCameraPermission() {
         return ContextCompat.checkSelfPermission(mActivity, Manifest.permission.CAMERA)
