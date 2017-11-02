@@ -575,9 +575,8 @@ public class Camera3 {
                             // When the session is ready, we start displaying the preview.
                             mCaptureSession = cameraCaptureSession;
                             try {
-                                //TODO: this doesn't actually check if the user set a custom request because
                                 //previewSession.getPreviewRequest() will never be null at this point
-                                if (previewSession.getPreviewRequest() == null) {
+                                if (!previewSession.usesCustomRequest()) {
                                     // Auto focus should be continuous for camera preview.
                                     mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_MODE,
                                             CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
@@ -1041,6 +1040,7 @@ public class Camera3 {
         private final CaptureRequest.Builder previewRequest;
         @Nullable
         private final PreviewSizeCallback previewSizeSelected;
+        private final boolean usesCustomRequest;
 
         //actual size of the capture request (from list of available sizes)
         private Size previewSize;
@@ -1077,8 +1077,12 @@ public class Camera3 {
             this.previewTextureView = previewTextureView;
             this.previewRequest = previewRequest;
             this.previewSizeSelected = previewSizeSelected;
+            this.usesCustomRequest = previewRequest == null;
         }
 
+        boolean usesCustomRequest() {
+            return usesCustomRequest;
+        }
     }
 
     /**
