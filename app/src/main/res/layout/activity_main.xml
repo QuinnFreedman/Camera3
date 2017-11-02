@@ -13,16 +13,28 @@
             android:id="@+id/preview"
             android:layout_alignParentTop="true"
             android:layout_alignParentStart="true"/>
-    <Button
-            android:text="@string/capture"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:id="@+id/capture" app:layout_constraintStart_toStartOf="parent"
-            android:layout_marginStart="8dp" app:layout_constraintEnd_toEndOf="parent"
-            android:layout_marginEnd="8dp" app:layout_constraintBottom_toBottomOf="parent"
-            android:layout_marginBottom="16dp"
-            android:layout_alignParentBottom="true"
-            android:layout_alignParentStart="true"
-            android:layout_alignParentEnd="true"/>
+    <!--<TextureView-->
+            <!--android:layout_width="match_parent"-->
+            <!--android:layout_height="match_parent"-->
+            <!--android:layout_alignParentStart="true"-->
+            <!--android:layout_alignParentTop="true"-->
+            <!--android:id="@+id/preview"/>-->
+    <LinearLayout android:layout_width="wrap_content"
+                  android:layout_height="wrap_content"
+                  android:layout_alignParentBottom="true"
+                  android:layout_alignParentStart="true"
+                  android:layout_alignParentEnd="true"
+                  android:gravity="center">
+        <Button
+                android:text="@string/capture"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:id="@+id/capture" app:layout_constraintStart_toStartOf="parent"
+                android:layout_marginStart="8dp" app:layout_constraintEnd_toEndOf="parent"
+                android:layout_marginEnd="8dp" app:layout_constraintBottom_toBottomOf="parent"
+                android:layout_marginBottom="16dp"/>
+
+    </LinearLayout>
+
 
 </RelativeLayout>
