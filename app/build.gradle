@@ -29,6 +29,7 @@ android {
 
 dependencies {
     implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation 'com.android.support:design:26.1.0'
     androidTestImplementation('com.android.support.test.espresso:espresso-core:2.2.2', {
         exclude group: 'com.android.support', module: 'support-annotations'
     })
@@ -42,3 +43,5 @@ repositories {
     mavenCentral()
     google()
 }
+
+apply plugin: 'kotlin-android-extensions'

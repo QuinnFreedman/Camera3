@@ -7,7 +7,9 @@ import android.content.pm.PackageManager;
 import android.graphics.*;
 import android.hardware.camera2.*;
 import android.hardware.camera2.params.StreamConfigurationMap;
+import android.media.Image;
 import android.media.ImageReader;
+import android.media.MediaActionSound;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.support.annotation.NonNull;
@@ -19,6 +21,7 @@ import android.util.SparseIntArray;
 import android.view.Surface;
 import android.view.TextureView;
 
+import java.io.File;
 import java.util.*;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
@@ -51,37 +54,24 @@ public class Camera3 {
      */
     static final int MAX_PREVIEW_HEIGHT = 1080;
 
-    /**
-     * Camera state: Showing camera preview.
-     */
-    private static final int STATE_PREVIEW = 0;
 
-    /**
-     * Camera state: Waiting for the focus to be locked.
-     */
-    private static final int STATE_WAITING_LOCK = 1;
-
-    /**
-     * Camera state: Waiting for the exposure to be precapture state.
-     */
-    private static final int STATE_WAITING_PRECAPTURE = 2;
-
-    /**
-     * Camera state: Waiting for the exposure state to be something other than precapture.
-     */
-    private static final int STATE_WAITING_NON_PRECAPTURE = 3;
-
-    /**
-     * Camera state: Picture was taken.
-     */
-    private static final int STATE_PICTURE_TAKEN = 4;
+    private enum CameraState {
+        //Showing camera preview
+        PREVIEW,
+        //Waiting for the focus to be locked.
+        WAITING_LOCK,
+        //Waiting for the exposure to be precapture state
+        WAITING_PRECAPTURE,
+        //Waiting for the exposure state to be something other than precapture
+        WAITING_NON_PRECAPTURE
+    }
 
     /**
      * The current state of camera state for taking pictures.
      *
      * @see #mCaptureCallback
      */
-    private int mState = STATE_PREVIEW;
+    private CameraState mState = CameraState.PREVIEW;
     /**
      * A {@link Semaphore} to prevent the app from exiting before closing the camera.
      */
@@ -99,7 +89,8 @@ public class Camera3 {
      */
     private CameraDevice mCameraDevice;
 
-    private Queue<ImageCaptureRequest> mCaptureRequestQueue = new ArrayDeque<>();
+//    private Queue<ImageCaptureRequest> mCaptureRequestQueue = new ArrayDeque<>();
+    private ImageCaptureRequest mCaptureRequest;
 
     private HandlerThread mBackgroundThread;
     private Handler mBackgroundHandler;
@@ -254,13 +245,21 @@ public class Camera3 {
             return;
         }
 
+        mErrorHandler.info("Adding capture request to queue...");
+//        mCaptureRequestQueue.add(
+//                new ImageCaptureRequest(session, precapture, capture, mErrorHandler));
+        mCaptureRequest = new ImageCaptureRequest(session, precapture, capture, mErrorHandler);
 
-        mCaptureRequestQueue.add(new ImageCaptureRequest(session, precapture, capture, mErrorHandler));
-
-        if (mPreviewSession == null) {
-            captureStillPicture();
+        if (mState == CameraState.PREVIEW) {
+            mErrorHandler.info(
+                    "Camera was in PREVIEW state, so request will be resolved immediately");
+            if (mPreviewSession == null) {
+                captureStillPicture();
+            } else {
+                lockFocus();
+            }
         } else {
-            lockFocus();
+            mErrorHandler.warning("trying to capture an image when state is "+mState.name());
         }
     }
 
@@ -273,11 +272,11 @@ public class Camera3 {
             return;
         }
         if (mPreviewSession != null) {
-            setUpPreviewOutput(cameraId, previewTextureSize, sensorOrientation, mPreviewSession,
-                    mActivity, mErrorHandler);
             if (previewTextureSize == null) {
                 mErrorHandler.warning("Preview Session is not null but previewTextureSize is null");
             } else {
+                setUpPreviewOutput(cameraId, previewTextureSize, sensorOrientation, mPreviewSession,
+                        mActivity, mErrorHandler);
                 configureTransform(mPreviewSession, previewTextureSize, mActivity, mErrorHandler);
             }
         }
@@ -478,14 +477,14 @@ public class Camera3 {
      * Lock the focus as the first step for a still image capture.
      */
     private void lockFocus() {
+        mErrorHandler.info("Locking focus...");
         try {
-
             // If the camera is previewing, tell it to lock focus.
             mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER,
                     CameraMetadata.CONTROL_AF_TRIGGER_START);
 
             // Tell #mCaptureCallback to wait for the lock.
-            mState = STATE_WAITING_LOCK;
+            mState = CameraState.WAITING_LOCK;
 
             mCaptureSession.capture(mPreviewRequestBuilder.build(), mCaptureCallback,
                     mBackgroundHandler);
@@ -500,8 +499,9 @@ public class Camera3 {
      * finished.
      */
     private void unlockFocus() {
+        mErrorHandler.info("Unlocking focus...");
         try {
-            mState = STATE_PREVIEW;
+            mState = CameraState.PREVIEW;
             if (mPreviewRequestBuilder != null) {
                 // Reset the auto-focus trigger
                 mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER,
@@ -515,6 +515,16 @@ public class Camera3 {
         } catch (CameraAccessException e) {
             reportCameraAccessException(e);
         }
+        //FIXME
+//        if (!mCaptureRequestQueue.isEmpty()) {
+//            mErrorHandler.info(
+//                    "Request queue was not empty -- immediately proceeding to capture another image");
+//            if (mPreviewSession == null) {
+//                captureStillPicture();
+//            } else {
+//                lockFocus();
+//            }
+//        }
     }
 
     /**
@@ -624,14 +634,20 @@ public class Camera3 {
 
         private void process(CaptureResult result) {
             try {
+
+                if (mState != CameraState.PREVIEW) {
+                    mErrorHandler.info("Processing capture result. (State: " + mState.name() + ")");
+                }
+
                 switch (mState) {
-                    case STATE_PREVIEW: {
+                    case PREVIEW: {
                         //do nothing
                         break;
                     }
-                    case STATE_WAITING_LOCK: {
+                    case WAITING_LOCK: {
                         Integer afState = result.get(CaptureResult.CONTROL_AF_STATE);
                         if (afState == null) {
+                            mErrorHandler.info("AF State was null, moving to capture image");
                             captureStillPicture();
                         } else if (afState == CaptureResult.CONTROL_AF_STATE_FOCUSED_LOCKED ||
                                 afState == CaptureResult.CONTROL_AF_STATE_NOT_FOCUSED_LOCKED) {
@@ -639,9 +655,10 @@ public class Camera3 {
                             Integer aeState = result.get(CaptureResult.CONTROL_AE_STATE);
                             if (aeState == null ||
                                     aeState == CaptureResult.CONTROL_AE_STATE_CONVERGED) {
+                                mErrorHandler.info("AE State null or converged, moving to capture image");
                                 captureStillPicture();
                             } else {
-                                ImageCaptureRequest request = mCaptureRequestQueue.peek();
+                                ImageCaptureRequest request = mCaptureRequest;//mCaptureRequestQueue.peek();
                                 if (request == null) {
                                     mErrorHandler.error(
                                             "Internal error: Request Queue was empty when trying to run precapture",
@@ -655,7 +672,7 @@ public class Camera3 {
                                     request.configurePrecapture(mPreviewRequestBuilder);
 
                                     // Tell #mCaptureCallback to wait for the precapture sequence to be set.
-                                    mState = STATE_WAITING_PRECAPTURE;
+                                    mState = CameraState.WAITING_PRECAPTURE;
                                     try {
                                         mCaptureSession.capture(
                                                 mPreviewRequestBuilder.build(),
@@ -665,23 +682,24 @@ public class Camera3 {
                                         reportCameraAccessException(e);
                                     }
                                 } else {
+                                    mErrorHandler.info("Request does not have precapture, moving to capture image");
                                     captureStillPicture();
                                 }
                             }
                         }
                         break;
                     }
-                    case STATE_WAITING_PRECAPTURE: {
+                    case WAITING_PRECAPTURE: {
                         // CONTROL_AE_STATE can be null on some devices
                         Integer aeState = result.get(CaptureResult.CONTROL_AE_STATE);
                         if (aeState == null ||
                                 aeState == CaptureResult.CONTROL_AE_STATE_PRECAPTURE ||
                                 aeState == CaptureRequest.CONTROL_AE_STATE_FLASH_REQUIRED) {
-                            mState = STATE_WAITING_NON_PRECAPTURE;
+                            mState = CameraState.WAITING_NON_PRECAPTURE;
                         }
                         break;
                     }
-                    case STATE_WAITING_NON_PRECAPTURE: {
+                    case WAITING_NON_PRECAPTURE: {
                         // CONTROL_AE_STATE can be null on some devices
                         Integer aeState = result.get(CaptureResult.CONTROL_AE_STATE);
                         if (aeState == null || aeState != CaptureResult.CONTROL_AE_STATE_PRECAPTURE) {
@@ -715,25 +733,25 @@ public class Camera3 {
      * Capture a still picture. Should be called from inside {@link #mCaptureCallback}
      */
     private void captureStillPicture() {
+        if (mCameraDevice == null) {
+            mErrorHandler.error("Internal error: mCameraDevice is null", null);
+            return;
+        }
+
+        ImageCaptureRequest request = mCaptureRequest;//mCaptureRequestQueue.poll();
+        if (request == null) {
+            mErrorHandler.error("Internal Error: capture queue was empty", null);
+            return;
+        }
+        StillImageCaptureSession session = request.getSession();
+        ImageReader imageReader = session.getImageReader();
+        if (imageReader == null) {
+            mErrorHandler.error(
+                    "Internal Error: capture session had a null ImageReader", null);
+            return;
+        }
+
         try {
-            if (mCameraDevice == null) {
-                mErrorHandler.error("Internal error: mCameraDevice is null", null);
-                return;
-            }
-
-            ImageCaptureRequest request = mCaptureRequestQueue.peek();
-            if (request == null) {
-                mErrorHandler.error("Internal Error: capture queue was empty", null);
-                return;
-            }
-            StillImageCaptureSession session = request.getSession();
-            ImageReader imageReader = session.getImageReader();
-            if (imageReader == null) {
-                mErrorHandler.error(
-                        "Internal Error: capture session had a null ImageReader", null);
-                return;
-            }
-
             // This is the CaptureRequest.Builder that we use to take a picture.
             final CaptureRequest.Builder captureBuilder =
                     mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE);
@@ -752,22 +770,22 @@ public class Camera3 {
             captureBuilder.addTarget(imageReader.getSurface());
             // Orientation
 
-            CameraCaptureSession.CaptureCallback CaptureCallback
+            CameraCaptureSession.CaptureCallback captureCallback
                     = new CameraCaptureSession.CaptureCallback() {
 
                 @Override
                 public void onCaptureCompleted(@NonNull CameraCaptureSession session,
                                                @NonNull CaptureRequest request,
                                                @NonNull TotalCaptureResult result) {
-                    Log.d(TAG, "captureCompleted() result = " + result);
+                    mErrorHandler.info("Capture Completed. result == " + result);
                     unlockFocus();
                 }
             };
 
             mCaptureSession.stopRepeating();
             mCaptureSession.abortCaptures();
-            mCaptureSession.capture(captureBuilder.build(), CaptureCallback, null);
-            mState = STATE_PICTURE_TAKEN;
+            mCaptureSession.capture(captureBuilder.build(), captureCallback, null);
+            mState = CameraState.PREVIEW;
         } catch (CameraAccessException e) {
             reportCameraAccessException(e);
         }
@@ -831,6 +849,14 @@ public class Camera3 {
         void previewSizeSelected(int orientation, Size previewSize);
     }
 
+    public void saveImage(Image image, File file) {
+        if (!hasWritePermission()) {
+            mErrorHandler.error("Unable to save file. This application does not have the " +
+                    "required permission: WRITE_EXTERNAL_STORAGE", null);
+        }
+        mBackgroundHandler.post(new ImageSaver(image, file));
+    }
+
     public PreviewSession createPreviewSession(@NonNull TextureView previewTextureView,
                                                @Nullable CaptureRequest.Builder previewRequest,
                                                @Nullable PreviewSizeCallback previewSizeSelected) {
@@ -847,11 +873,12 @@ public class Camera3 {
     public StillImageCaptureSession
     createStillImageCaptureSession(int imageFormat,
                                    @NonNull Size imageSize,
-                                   @NonNull ImageReader.OnImageAvailableListener onImageAvailableListener) {
+                                   @NonNull OnImageAvailableListener onImageAvailableListener) {
         return new StillImageCaptureSession(
                 imageFormat, imageSize,
                 onImageAvailableListener,
-                mBackgroundHandler);
+                mBackgroundHandler,
+                mErrorHandler);
     }
 
     public interface ImageCaptureRequestConfiguration {
@@ -861,6 +888,11 @@ public class Camera3 {
 
     public boolean hasCameraPermission() {
         return ContextCompat.checkSelfPermission(mActivity, Manifest.permission.CAMERA)
+                == PackageManager.PERMISSION_GRANTED;
+    }
+
+    public boolean hasWritePermission() {
+        return ContextCompat.checkSelfPermission(mActivity, Manifest.permission.WRITE_EXTERNAL_STORAGE)
                 == PackageManager.PERMISSION_GRANTED;
     }
 

@@ -1,5 +1,6 @@
 package com.avalancheevantage.camera3;
 
+import android.media.Image;
 import android.media.ImageReader;
 import android.os.Handler;
 import android.support.annotation.NonNull;
@@ -12,7 +13,7 @@ import java.util.List;
  * This class represents the configuration for a preview session. It is responsible for processing
  * the image data from the camera and calling the user's callback whenever an image is available.
  * <p>
- * This class should be instantiated via {@link Camera3#createStillImageCaptureSession(int, Size, ImageReader.OnImageAvailableListener)}
+ * This class should be instantiated via {@link Camera3#createStillImageCaptureSession(int, Size, OnImageAvailableListener)}
  * <p>
  * It should be created once and passed to
  * {@link Camera3#startCaptureSession(String, PreviewSession, List)} when the capture
@@ -37,10 +38,11 @@ public class StillImageCaptureSession {
         return imageSize;
     }
 
-    StillImageCaptureSession(int imageFormat,
-                             @NonNull Size imageSize,
-                             @NonNull ImageReader.OnImageAvailableListener onImageAvailableListener,
-                             Handler backgroundHandler) {
+    StillImageCaptureSession(final int imageFormat,
+                             @NonNull final Size imageSize,
+                             @NonNull final OnImageAvailableListener onImageAvailableListener,
+                             final Handler backgroundHandler,
+                             final ErrorHandler errorHandler) {
         if (imageSize == null) {
             throw new IllegalArgumentException("imageSize cannot be null");
         }
@@ -53,7 +55,21 @@ public class StillImageCaptureSession {
         this.imageReader = ImageReader.newInstance(imageSize.getWidth(), imageSize.getHeight(),
                 imageFormat, 2);
         this.imageReader.setOnImageAvailableListener(
-                onImageAvailableListener, backgroundHandler);
+                new ImageReader.OnImageAvailableListener() {
+                    @Override
+                    public void onImageAvailable(ImageReader reader) {
+                        try {
+                            Image image = reader.acquireNextImage();
+                            onImageAvailableListener.onImageAvailable(image);
+                            image.close();
+                        } catch (IllegalStateException e) {
+                            errorHandler.error(
+                                    "The image queue for this capture session is full. " +
+                                            "More images must be processed before any new ones can " +
+                                            "be captured.", e);
+                        }
+                    }
+                }, backgroundHandler);
 
     }
 

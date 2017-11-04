@@ -3,6 +3,7 @@
           package="com.avalancheevantage.camera3Demo">
 
     <uses-permission android:name="android.permission.CAMERA"/>
+
     <application
             android:allowBackup="true"
             android:icon="@mipmap/ic_launcher"
@@ -16,6 +17,11 @@
 
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+        </activity>
+        <activity
+                android:name=".ViewImageActivity"
+                android:label="@string/title_activity_view_image"
+                android:theme="@style/AppTheme.NoActionBar">
         </activity>
     </application>
 

@@ -28,8 +28,11 @@ import static com.avalancheevantage.camera3.Camera3.NULL_MANAGER_MESSAGE;
 
 class PrivateUtils {
 
-    @Contract("!null, _, _ -> false")
+    @Contract("!null, _, !null -> false")
     static boolean requireNotNull(Object o, String message, ErrorHandler errorHandler) {
+        if (errorHandler == null) {
+            return true;
+        }
         if (o == null) {
             errorHandler.error(message, null);
             return true;
@@ -72,6 +75,7 @@ class PrivateUtils {
                                    @NonNull Activity activity,
                                    @NonNull ErrorHandler errorHandler) {
         errorHandler.info("Configuring preview transform matrix...");
+        //noinspection ConstantConditions
         if (requireNotNull(previewSession, "preview session is null when trying to configure preview transform", errorHandler) ||
             requireNotNull(previewSession.getTextureView(), "textureView is null when trying to configure preview transform", errorHandler) ||
             requireNotNull(activity, "activity is null when trying to configure preview transform", errorHandler)
@@ -106,16 +110,18 @@ class PrivateUtils {
 
     //TODO: refactor to take a PreviewSession, add textureSize as a field of preview session
     @SuppressWarnings("SuspiciousNameCombination")
-    static void setUpPreviewOutput(String cameraId,
-                                   @Nullable Size previewTextureSize,
+    static void setUpPreviewOutput(@NonNull String cameraId,
+                                   @NonNull Size previewTextureSize,
                                    int sensorOrientation,
                                    @NonNull PreviewSession previewSession,
                                    @NonNull Activity activity,
                                    @NonNull ErrorHandler errorHandler) {
+        //noinspection ConstantConditions
         if (
             requireNotNull(previewSession, "Cannot configure null preview session", errorHandler) ||
             requireNotNull(previewTextureSize, "previewTextureSize is null", errorHandler) ||
-            requireNotNull(activity, "activity is null in setUpPreviewOutput()", errorHandler)
+            requireNotNull(activity, "activity is null in setUpPreviewOutput()", errorHandler) ||
+            requireNotNull(cameraId, "cameraId is null in setUpPreviewOutput()", errorHandler)
         ) {
             return;
         }
@@ -143,11 +149,6 @@ class PrivateUtils {
                 errorHandler.warning("Display rotation is invalid: " + displayRotation);
         }
 
-
-        if (previewTextureSize == null) {
-            errorHandler.warning("Preview Session is not null but previewTextureSize is null");
-            return;
-        }
         Point displaySize = new Point();
         activity.getWindowManager().getDefaultDisplay().getSize(displaySize);
         int rotatedPreviewWidth = previewTextureSize.getWidth();

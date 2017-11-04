@@ -5,6 +5,7 @@ import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.graphics.ImageFormat;
 import android.hardware.camera2.CameraAccessException;
+import android.media.Image;
 import android.media.ImageReader;
 import android.os.Build;
 import android.support.annotation.NonNull;
@@ -18,9 +19,12 @@ import android.view.TextureView;
 import android.view.View;
 import android.widget.Toast;
 import com.avalancheevantage.camera3.Camera3;
+import com.avalancheevantage.camera3.OnImageAvailableListener;
 import com.avalancheevantage.camera3.PreviewSession;
 import com.avalancheevantage.camera3.StillImageCaptureSession;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.Collections;
 
 public class MainActivity extends AppCompatActivity {
@@ -92,14 +96,21 @@ public class MainActivity extends AppCompatActivity {
         final StillImageCaptureSession captureSession =
                 cameraManager.createStillImageCaptureSession(ImageFormat.JPEG,
                         cameraManager.getLargestAvailableSize(cameraId, ImageFormat.JPEG),
-                        new ImageReader.OnImageAvailableListener() {
+                        new OnImageAvailableListener() {
+                            private int imageCount = 0;
                             @Override
-                            public void onImageAvailable(ImageReader reader) {
+                            public void onImageAvailable(Image image) {
+                                ++imageCount;
                                 Log.d(TAG, "***********************************************");
-                                Log.d(TAG, "IMAGE AVAILABLE");
+                                Log.d(TAG, "IMAGE AVAILABLE: "+imageCount);
                                 Log.d(TAG, "***********************************************");
                                 Toast.makeText(MainActivity.this,
-                                        "Image Captured!", Toast.LENGTH_SHORT).show();
+                                        "Image Captured! "+imageCount, Toast.LENGTH_SHORT).show();
+//                                try {
+//                                    cameraManager.saveImage(image, File.createTempFile("test","jpeg"));
+//                                } catch (IOException e) {
+//                                    e.printStackTrace();
+//                                }
                             }
                         });
         cameraManager.startCaptureSession(cameraId, previewSession , Collections.singletonList(captureSession));
