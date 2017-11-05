@@ -1,32 +1,37 @@
 /*
- * Copyright 2014 The Android Open Source Project
+ * Copied in part from the Google Samples github repository
+ * (https://github.com/googlesamples/android-Camera2Basic),
+ * with substantial modification
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * The original file was distributed under the Apache v2 license
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- *       http://www.apache.org/licenses/LICENSE-2.0
+ * This file is redistributed under the MIT License.
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * See the included LICENSE file
  */
+
 
 package com.avalancheevantage.camera3Demo;
 
 import android.content.Context;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.view.TextureView;
+import android.view.ViewGroup;
 
 /**
  * A {@link TextureView} that can be adjusted to a specified aspect ratio.
  */
 public class AutoFitTextureView extends TextureView {
+    private static final String TAG = "AutoFitTextureView";
+
+    public static final boolean STYLE_FILL = true;
+    public static final boolean STYLE_FIT = false;
 
     private int mRatioWidth = 0;
     private int mRatioHeight = 0;
+    private boolean fillStyle = false;
 
     public AutoFitTextureView(Context context) {
         this(context, null);
@@ -57,18 +62,46 @@ public class AutoFitTextureView extends TextureView {
         requestLayout();
     }
 
+    /**
+     * Set whether this TextureView should scale enough to fit the available space (potentially
+     * with empty margins) or enough to fill it entirely (potentially with cropping)
+     * <p>
+     * Use {@link #STYLE_FIT} or {@link #STYLE_FILL}
+     *
+     * @param fill
+     */
+    public void setFill(boolean fill) {
+        this.fillStyle = fill;
+    }
+
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
         super.onMeasure(widthMeasureSpec, heightMeasureSpec);
         int width = MeasureSpec.getSize(widthMeasureSpec);
         int height = MeasureSpec.getSize(heightMeasureSpec);
+        Log.d(TAG, "Parent Size = " + width + "x" + height + ", aspect ratio = " + mRatioWidth + "x" + mRatioHeight);
         if (0 == mRatioWidth || 0 == mRatioHeight) {
             setMeasuredDimension(width, height);
         } else {
-            if (width < height * mRatioWidth / mRatioHeight) {
-                setMeasuredDimension(width, width * mRatioHeight / mRatioWidth);
+            if (this.fillStyle == STYLE_FILL) {
+                if (width > height * mRatioWidth / mRatioHeight) {
+                    Log.d(TAG, "target size = " + width + "x" + (width * mRatioHeight / mRatioWidth));
+                    setMeasuredDimension(width, width * mRatioHeight / mRatioWidth);
+                } else {
+                    //overflow sideways
+                    int overflowWidth = height * mRatioWidth / mRatioHeight;
+                    setMeasuredDimension(overflowWidth, height);
+//                    int offset = (overflowWidth - width) / 2;
+//                    ViewGroup.MarginLayoutParams params = (ViewGroup.MarginLayoutParams) getLayoutParams();
+//                    params.setMargins(-offset, params.topMargin, -offset, params.bottomMargin);
+//                    setLayoutParams(params);
+                }
             } else {
-                setMeasuredDimension(height * mRatioWidth / mRatioHeight, height);
+                if (width < height * mRatioWidth / mRatioHeight) {
+                    setMeasuredDimension(width, width * mRatioHeight / mRatioWidth);
+                } else {
+                    setMeasuredDimension(height * mRatioWidth / mRatioHeight, height);
+                }
             }
         }
     }

@@ -1,11 +1,14 @@
 /*
- * Copied from the Google Samples github repository
- * (https://github.com/googlesamples/android-Camera2Basic)
- * with modification
+ * Copied in part from the Google Samples github repository
+ * (https://github.com/googlesamples/android-Camera2Basic),
+ * with substantial modification
  *
- * Distributed under the Apache v2 license
+ * The original file was distributed under the Apache v2 license
  * http://www.apache.org/licenses/LICENSE-2.0
  *
+ * This file is redistributed under the MIT License.
+ *
+ * See the included LICENSE file
  */
 
 package com.avalancheevantage.camera3;

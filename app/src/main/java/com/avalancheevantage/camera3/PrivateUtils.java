@@ -184,19 +184,18 @@ class PrivateUtils {
                     null);
             return;
         }
-        //TODO why are we looking for something with the same aspect ratio as the largest JPEG
-        //instead of the largest of getOutputSizes(SurfaceTexture.class)
-        Size largestJpeg = Collections.max(
-                Arrays.asList(map.getOutputSizes(ImageFormat.JPEG)),
+        Size[] previewSizes =  map.getOutputSizes(SurfaceTexture.class);
+        Size largestPreviewSize = Collections.max(
+                Arrays.asList(previewSizes),
                 new CompareSizesByArea());
 
         // Danger, W.R.! Attempting to use too large a preview size could  exceed the camera
         // bus' bandwidth limitation, resulting in gorgeous previews but the storage of
         // garbage capture data.
         //TODO allow the user to specify a preferred preview aspect ratio and size
-        Size optimalSize = chooseOptimalSize(map.getOutputSizes(SurfaceTexture.class),
+        Size optimalSize = chooseOptimalSize(previewSizes,
                 rotatedPreviewWidth, rotatedPreviewHeight, maxPreviewWidth,
-                maxPreviewHeight, /*aspect ratio*/ largestJpeg, errorHandler);
+                maxPreviewHeight, /*aspect ratio*/ largestPreviewSize, errorHandler);
         previewSession.setPreviewSize(optimalSize);
 
         //notify the user what preview size we chose

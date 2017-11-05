@@ -1,15 +1,36 @@
+/*
+ * Copied in part from the Google Samples github repository
+ * (https://github.com/googlesamples/android-Camera2Basic),
+ * with substantial modification
+ *
+ * The original file was distributed under the Apache v2 license
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * This file is redistributed under the MIT License.
+ *
+ * See the included LICENSE file
+ */
+
+
 package com.avalancheevantage.camera3;
 
 import android.Manifest;
 import android.app.Activity;
 import android.content.Context;
 import android.content.pm.PackageManager;
-import android.graphics.*;
-import android.hardware.camera2.*;
+import android.graphics.SurfaceTexture;
+import android.hardware.camera2.CameraAccessException;
+import android.hardware.camera2.CameraCaptureSession;
+import android.hardware.camera2.CameraCharacteristics;
+import android.hardware.camera2.CameraDevice;
+import android.hardware.camera2.CameraManager;
+import android.hardware.camera2.CameraMetadata;
+import android.hardware.camera2.CaptureRequest;
+import android.hardware.camera2.CaptureResult;
+import android.hardware.camera2.TotalCaptureResult;
 import android.hardware.camera2.params.StreamConfigurationMap;
 import android.media.Image;
 import android.media.ImageReader;
-import android.media.MediaActionSound;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.support.annotation.NonNull;
@@ -22,7 +43,11 @@ import android.view.Surface;
 import android.view.TextureView;
 
 import java.io.File;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
@@ -31,13 +56,11 @@ import static com.avalancheevantage.camera3.PrivateUtils.setUpPreviewOutput;
 
 /**
  * Camera3 is a wrapper around the Android Camera2 API. It is an attempt to
- * provide a single, much simpler, much safer interface to the notoriously
- * bad Camera2 API.
+ * provide a single simple and safe interface to the notoriously
+ * bad Android Camera2 API.
  *
  * It is adapted from the Camera2Basic Google Sample at
- * https://github.com/googlesamples/android-Camera2Basic which was released
- * under the Apache License v2 at
- * https://raw.githubusercontent.com/googlesamples/android-Camera2Basic/master/LICENSE
+ * https://github.com/googlesamples/android-Camera2Basic
  *
  * @author Quinn Freedman
  */
@@ -149,6 +172,15 @@ public class Camera3 {
     }
 
 
+    /**
+     * Creates a new Camera3 manager instance. Only one such manager should have to exist
+     * per {@link Activity}. Many different preview sessions, capture sessions, and capture
+     * requests can exist for one Camera3 object.
+     *
+     * @param activity The context from which to access the camera. Should usually just be the
+     *                 current activity
+     * @param errorHandler
+     */
     public Camera3(@NonNull Activity activity, @Nullable ErrorHandler errorHandler) {
         if (activity == null) {
             throw new IllegalArgumentException("activity is null in `new Camera3(activity, ...)`");
@@ -176,10 +208,43 @@ public class Camera3 {
         }
     }
 
+    /**
+     * Starts a new session. Only one session can be open at a time.
+     *
+     * @param cameraId which camera to use (from {@link Camera3#getAvailableCameras()}).
+     * @param previewSession an object representing the configuration for the camera preview, or
+     *                       <code>null</code> to not show a preview (see {@link PreviewSession}).
+     * @param stillCaptureSessions a list of zero or more {@link StillImageCaptureSession} sessions,
+     *                             or null if no still images will be captured. Usually only one
+     *                             is required.
+     *
+     * @see Camera3#createPreviewSession(TextureView, CaptureRequest.Builder, PreviewSizeCallback)
+     * @see Camera3#createStillImageCaptureSession(int, Size, OnImageAvailableListener)
+     */
     public void startCaptureSession(@NonNull String cameraId,
                                     @Nullable PreviewSession previewSession,
                                     @Nullable List<StillImageCaptureSession> stillCaptureSessions) {
         try {
+            if (this.started) {
+                throw new IllegalStateException(
+                        "A capture session is already started. Only one can be running at a time");
+            }
+            if (mPreviewSession != null && mPreviewSession.getParent() != this) {
+                throw new IllegalArgumentException(
+                        "previewSession belongs to a different instance of Camera3");
+            }
+            if (stillCaptureSessions != null) {
+                for (int i = 0; i < stillCaptureSessions.size(); i++) {
+                    if (stillCaptureSessions.get(i).getParent() != this) {
+                        throw new IllegalArgumentException(
+                                "StillImageCaptureSession number "+i+
+                                        " belongs to a different instance of Camera3");
+                    }
+                }
+            }
+            this.started = true;
+            startBackgroundThread();
+
             mErrorHandler.info("starting preview");
 
             mPreviewSession = previewSession;
@@ -203,20 +268,6 @@ public class Camera3 {
             } else {
                 mStillCaptureSessions = new ArrayList<>();
             }
-        } catch (Exception e) {
-            mErrorHandler.error("Something went wrong", e);
-        }
-    }
-
-    public void start() {
-        try {
-            mErrorHandler.info("start");
-            if (this.started) {
-                mErrorHandler.warning("Calling `start()` when Camera3 is already started.");
-                return;
-            }
-            this.started = true;
-            startBackgroundThread();
         } catch (Exception e) {
             mErrorHandler.error("Something went wrong", e);
         }
@@ -263,6 +314,10 @@ public class Camera3 {
         }
     }
 
+    public ErrorHandler getErrorHandler() {
+        return mErrorHandler;
+    }
+
     private void openCamera(String cameraId, @Nullable Size previewTextureSize) /*throws CameraAccessException*/ {
         mErrorHandler.info("opening camera");
         mErrorHandler.info("Preview texture size == " + previewTextureSize);
@@ -305,6 +360,7 @@ public class Camera3 {
     }
 
     private void startBackgroundThread() {
+        mErrorHandler.info("Starting background threads...");
         mBackgroundThread = new HandlerThread("CameraBackground");
         mBackgroundThread.start();
         mBackgroundHandler = new Handler(mBackgroundThread.getLooper());
@@ -730,7 +786,7 @@ public class Camera3 {
     };
 
     /**
-     * Capture a still picture. Should be called from inside {@link #mCaptureCallback}
+     * Capture a still picture. Should be called from inside {@link Camera3#mCaptureCallback}
      */
     private void captureStillPicture() {
         if (mCameraDevice == null) {
@@ -792,8 +848,6 @@ public class Camera3 {
     }
 
 
-
-    /* Private Utils */
     private void reportCameraAccessException(CameraAccessException e) {
        PrivateUtils.reportCameraAccessException(e, mErrorHandler);
     }
@@ -849,12 +903,21 @@ public class Camera3 {
         void previewSizeSelected(int orientation, Size previewSize);
     }
 
+    /**
+     * A utility method to synchronously save an image file. The caller must obtain permission to
+     * write to external storage before calling this method.
+     *
+     * @param image the image to save
+     * @param file the file to write to
+     */
     public void saveImage(Image image, File file) {
         if (!hasWritePermission()) {
             mErrorHandler.error("Unable to save file. This application does not have the " +
                     "required permission: WRITE_EXTERNAL_STORAGE", null);
         }
-        mBackgroundHandler.post(new ImageSaver(image, file));
+        //TODO: if you get the image from onImageAvailable it will could be closed before the ImageSaver runs
+        //mBackgroundHandler.post(new ImageSaver(image, file));
+        new ImageSaver(image, file).run();
     }
 
     public PreviewSession createPreviewSession(@NonNull TextureView previewTextureView,
@@ -863,7 +926,8 @@ public class Camera3 {
         return new PreviewSession(
                 previewTextureView,
                 previewRequest,
-                previewSizeSelected);
+                previewSizeSelected,
+                this);
     }
 
     /**
@@ -878,7 +942,7 @@ public class Camera3 {
                 imageFormat, imageSize,
                 onImageAvailableListener,
                 mBackgroundHandler,
-                mErrorHandler);
+                this);
     }
 
     public interface ImageCaptureRequestConfiguration {

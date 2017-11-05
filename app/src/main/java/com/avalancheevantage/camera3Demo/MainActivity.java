@@ -65,7 +65,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void onPermissionGranted() {
         Log.d(TAG, "onPermissionGranted");
-        cameraManager.start();
+//        cameraManager.start();
         String cameraId = null;
         try {
             cameraId = cameraManager.getAvailableCameras().get(0);
@@ -74,6 +74,7 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
         final AutoFitTextureView previewTexture = findViewById(R.id.preview);
+        previewTexture.setFill(AutoFitTextureView.STYLE_FILL);
 //        final TextureView previewTexture = findViewById(R.id.preview);
 
         PreviewSession previewSession = cameraManager.createPreviewSession(

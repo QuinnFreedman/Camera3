@@ -25,6 +25,8 @@ import java.util.List;
 
 public class StillImageCaptureSession {
     private final int imageFormat;
+    @NonNull
+    private final Camera3 parent;
     @Nullable
     private Size imageSize;
     private ImageReader imageReader;
@@ -41,14 +43,15 @@ public class StillImageCaptureSession {
     StillImageCaptureSession(final int imageFormat,
                              @NonNull final Size imageSize,
                              @NonNull final OnImageAvailableListener onImageAvailableListener,
-                             final Handler backgroundHandler,
-                             final ErrorHandler errorHandler) {
+                             @NonNull final Handler backgroundHandler,
+                             @NonNull final Camera3 parent) {
         if (imageSize == null) {
             throw new IllegalArgumentException("imageSize cannot be null");
         }
         if (onImageAvailableListener == null) {
             throw new IllegalArgumentException("onImageAvailableListener cannot be null");
         }
+        this.parent = parent;
         this.imageFormat = imageFormat;
         this.imageSize = imageSize;
 
@@ -63,7 +66,7 @@ public class StillImageCaptureSession {
                             onImageAvailableListener.onImageAvailable(image);
                             image.close();
                         } catch (IllegalStateException e) {
-                            errorHandler.error(
+                            parent.getErrorHandler().error(
                                     "The image queue for this capture session is full. " +
                                             "More images must be processed before any new ones can " +
                                             "be captured.", e);
@@ -82,5 +85,10 @@ public class StillImageCaptureSession {
             this.imageReader.close();
             this.imageReader = null;
         }
+    }
+
+    @NonNull
+    public Camera3 getParent() {
+        return parent;
     }
 }

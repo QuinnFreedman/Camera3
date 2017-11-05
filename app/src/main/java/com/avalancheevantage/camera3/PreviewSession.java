@@ -13,7 +13,7 @@ import java.util.List;
  * reference to the preview {@link TextureView} and for allowing the user to optionally specify
  * a custom preview request and callback. It should be created once and passed to
  * {@link Camera3#startCaptureSession(String, PreviewSession, List)} when the capture
- * session is started
+ * session is started.
  * <p>
  * This class should be instantiated via {@link Camera3#createPreviewSession(TextureView, CaptureRequest.Builder, Camera3.PreviewSizeCallback)}
  *
@@ -31,6 +31,7 @@ public class PreviewSession {
 
     //actual size of the capture request (from list of available sizes)
     private Size previewSize;
+    private Camera3 parent;
 
     @NonNull
     TextureView getTextureView() {
@@ -57,7 +58,10 @@ public class PreviewSession {
 
     PreviewSession(@NonNull TextureView previewTextureView,
                    @Nullable CaptureRequest.Builder previewRequest,
-                   @Nullable Camera3.PreviewSizeCallback previewSizeSelected) {
+                   @Nullable Camera3.PreviewSizeCallback previewSizeSelected,
+                   @NonNull Camera3 parent) {
+        this.parent = parent;
+        //noinspection ConstantConditions
         if (previewTextureView == null) {
             throw new IllegalArgumentException("previewTextureView cannot be null");
         }
@@ -69,5 +73,9 @@ public class PreviewSession {
 
     boolean usesCustomRequest() {
         return usesCustomRequest;
+    }
+
+    public Camera3 getParent() {
+        return parent;
     }
 }
