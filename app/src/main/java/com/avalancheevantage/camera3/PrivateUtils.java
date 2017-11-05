@@ -30,10 +30,9 @@ class PrivateUtils {
 
     @Contract("!null, _, !null -> false")
     static boolean requireNotNull(Object o, String message, ErrorHandler errorHandler) {
-        if (errorHandler == null) {
-            return true;
-        }
-        if (o == null) {
+        try {
+            Objects.requireNonNull(o, message);
+        } catch (NullPointerException e) {
             errorHandler.error(message, null);
             return true;
         }

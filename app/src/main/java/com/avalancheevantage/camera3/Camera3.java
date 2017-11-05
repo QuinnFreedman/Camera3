@@ -48,6 +48,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
@@ -58,7 +59,7 @@ import static com.avalancheevantage.camera3.PrivateUtils.setUpPreviewOutput;
  * Camera3 is a wrapper around the Android Camera2 API. It is an attempt to
  * provide a single simple and safe interface to the notoriously
  * bad Android Camera2 API.
- *
+ * <p>
  * It is adapted from the Camera2Basic Google Sample at
  * https://github.com/googlesamples/android-Camera2Basic
  *
@@ -112,7 +113,7 @@ public class Camera3 {
      */
     private CameraDevice mCameraDevice;
 
-//    private Queue<ImageCaptureRequest> mCaptureRequestQueue = new ArrayDeque<>();
+    //    private Queue<ImageCaptureRequest> mCaptureRequestQueue = new ArrayDeque<>();
     private ImageCaptureRequest mCaptureRequest;
 
     private HandlerThread mBackgroundThread;
@@ -177,11 +178,13 @@ public class Camera3 {
      * per {@link Activity}. Many different preview sessions, capture sessions, and capture
      * requests can exist for one Camera3 object.
      *
-     * @param activity The context from which to access the camera. Should usually just be the
-     *                 current activity
-     * @param errorHandler
+     * @param activity     The context from which to access the camera. Should usually just be the
+     *                     current activity
+     * @param errorHandler An {@link ErrorHandler} to handle any errors that arise over the lifetime
+     *                     of this Camera3 object.
      */
     public Camera3(@NonNull Activity activity, @Nullable ErrorHandler errorHandler) {
+        //noinspection ConstantConditions
         if (activity == null) {
             throw new IllegalArgumentException("activity is null in `new Camera3(activity, ...)`");
         }
@@ -211,13 +214,12 @@ public class Camera3 {
     /**
      * Starts a new session. Only one session can be open at a time.
      *
-     * @param cameraId which camera to use (from {@link Camera3#getAvailableCameras()}).
-     * @param previewSession an object representing the configuration for the camera preview, or
-     *                       <code>null</code> to not show a preview (see {@link PreviewSession}).
+     * @param cameraId             which camera to use (from {@link Camera3#getAvailableCameras()}).
+     * @param previewSession       an object representing the configuration for the camera preview, or
+     *                             <code>null</code> to not show a preview (see {@link PreviewSession}).
      * @param stillCaptureSessions a list of zero or more {@link StillImageCaptureSession} sessions,
      *                             or null if no still images will be captured. Usually only one
      *                             is required.
-     *
      * @see Camera3#createPreviewSession(TextureView, CaptureRequest.Builder, PreviewSizeCallback)
      * @see Camera3#createStillImageCaptureSession(int, Size, OnImageAvailableListener)
      */
@@ -237,7 +239,7 @@ public class Camera3 {
                 for (int i = 0; i < stillCaptureSessions.size(); i++) {
                     if (stillCaptureSessions.get(i).getParent() != this) {
                         throw new IllegalArgumentException(
-                                "StillImageCaptureSession number "+i+
+                                "StillImageCaptureSession number " + i +
                                         " belongs to a different instance of Camera3");
                     }
                 }
@@ -269,31 +271,58 @@ public class Camera3 {
                 mStillCaptureSessions = new ArrayList<>();
             }
         } catch (Exception e) {
-            mErrorHandler.error("Something went wrong", e);
+            reportUnknownException(e);
         }
     }
 
-    public void stop() {
+    /**
+     * Stops background threads and frees the camera.
+     * <p>
+     * <code>pause</code> <b>must</b> be called from {@link Activity#onPause()} form the activity
+     * that started the session. Otherwise, the app could close without relinquishing control of the
+     * camera
+     */
+    public void pause() {
         try {
-            mErrorHandler.info("stop");
+            mErrorHandler.info("pause");
             if (!this.started) {
-                mErrorHandler.warning("Calling `stop()` when Camera3 is already stopped.");
+                mErrorHandler.warning("Calling `pause()` when Camera3 is already stopped.");
                 return;
             }
             closeCamera();
             stopBackgroundThread();
             this.started = false;
         } catch (Exception e) {
-            mErrorHandler.error("Something went wrong", e);
+            reportUnknownException(e);
         }
     }
 
-    public void captureImage(StillImageCaptureSession session,
-                             ImageCaptureRequestConfiguration precapture,
+    /**
+     * Starts the process of capturing a still image from the camera. Should be called after calling
+     * {@link Camera3#startCaptureSession(String, PreviewSession, List)}
+     *
+     * @param session    the {@link StillImageCaptureSession} which will be responsible for processing
+     *                   the image
+     * @param precapture the precapture configuration. Use {@link
+     *                   Camera3#PRECAPTURE_CONFIG_TRIGGER_AUTO_FOCUS}
+     *                   to trigger auto focus prior to the image capture or use {@link
+     *                   Camera3#PRECAPTURE_CONFIG_NONE} to skip precapture (and use the preview
+     *                   focus). This will speed up the capture process.
+     * @param capture    the configuration for the actual image capture (on top of the defaults). Use
+     *                   {@link Camera3#CAPTURE_CONFIG_DEFAULT} if you don't want to change the default
+     *                   configuration at all.
+     */
+    public void captureImage(@NonNull StillImageCaptureSession session,
+                             @Nullable ImageCaptureRequestConfiguration precapture,
                              ImageCaptureRequestConfiguration capture) {
-        if (mStillCaptureSessions.isEmpty()) {
-            mErrorHandler.warning("No still capture targets configured");
-            return;
+        if (!this.started) {
+            throw new IllegalStateException("trying to call captureImage(...) " +
+                    "but a capture session has not been started yet");
+        }
+        if (Objects.requireNonNull(session, "capture session is null")
+                .getParent() != this) {
+            throw new IllegalArgumentException(
+                    "This StillImageCaptureSession belongs to another Camera3 instance");
         }
 
         mErrorHandler.info("Adding capture request to queue...");
@@ -310,7 +339,7 @@ public class Camera3 {
                 lockFocus();
             }
         } else {
-            mErrorHandler.warning("trying to capture an image when state is "+mState.name());
+            mErrorHandler.warning("trying to capture an image when state is " + mState.name());
         }
     }
 
@@ -353,7 +382,7 @@ public class Camera3 {
         } catch (SecurityException e) {
             mErrorHandler.error(
                     "Permission denied to access the camera. " +
-                    "Camera Permission must be obtained by activity before starting Camera3",
+                            "Camera Permission must be obtained by activity before starting Camera3",
                     e);
 
         }
@@ -405,22 +434,17 @@ public class Camera3 {
      * Creates a new {@link CameraCaptureSession} for camera preview.
      */
     private void createPreviewCameraCaptureSession(@NonNull final PreviewSession previewSession) {
-        if (previewSession == null) {
-            mErrorHandler.error("Internal error: previewSession is null", null);
+
+        if (requireNotNull(previewSession, "Internal error: previewSession is null")) {
             return;
         }
         Size previewSize = previewSession.getPreviewSize();
-        if (previewSize == null) {
-            mErrorHandler.error(
-                    "Internal error: previewSession.previewSize is null", null);
+        if (requireNotNull(previewSize, "Internal error: previewSession.previewSize is null")) {
             return;
         }
 
         SurfaceTexture texture = previewSession.getTextureView().getSurfaceTexture();
-        if (texture == null) {
-            mErrorHandler.error(
-                    "previewSession.getTextureView().getSurfaceTexture() is null",
-                    null);
+        if (requireNotNull(texture, "previewSession.getTextureView().getSurfaceTexture() is null")) {
             return;
         }
 
@@ -765,7 +789,7 @@ public class Camera3 {
                     }
                 }
             } catch (Exception e) {
-                mErrorHandler.error("Something went wrong", e);
+                reportUnknownException(e);
             }
         }
 
@@ -840,6 +864,7 @@ public class Camera3 {
 
             mCaptureSession.stopRepeating();
             mCaptureSession.abortCaptures();
+            //TODO check for bug: got an IllegalArgumentException here:
             mCaptureSession.capture(captureBuilder.build(), captureCallback, null);
             mState = CameraState.PREVIEW;
         } catch (CameraAccessException e) {
@@ -847,9 +872,17 @@ public class Camera3 {
         }
     }
 
-
+    /* Private Utils */
     private void reportCameraAccessException(CameraAccessException e) {
-       PrivateUtils.reportCameraAccessException(e, mErrorHandler);
+        PrivateUtils.reportCameraAccessException(e, mErrorHandler);
+    }
+
+    private void reportUnknownException(Exception e) {
+        mErrorHandler.error("Oops! Something went wrong.", e);
+    }
+
+    private boolean requireNotNull(Object o, String message) {
+        return PrivateUtils.requireNotNull(o, message, mErrorHandler);
     }
 
     /* Public Utils */
@@ -861,15 +894,15 @@ public class Camera3 {
     @Nullable
     public CameraCharacteristics getCameraInfo(String cameraId) throws CameraAccessException {
         CameraManager manager = (CameraManager) mActivity.getSystemService(Context.CAMERA_SERVICE);
-        if (manager == null) {
-            mErrorHandler.error(NULL_MANAGER_MESSAGE, null);
+        if (requireNotNull(manager, NULL_MANAGER_MESSAGE)) {
             return null;
         }
+        assert manager != null;
         return manager.getCameraCharacteristics(cameraId);
     }
 
     @NonNull
-    public Collection<Size> getAvailableSizes(String cameraId, int format) {
+    public Collection<Size> getAvailableSizes(@NonNull String cameraId, int format) {
         CameraCharacteristics characteristics;
         try {
             characteristics = getCameraInfo(cameraId);
@@ -908,14 +941,16 @@ public class Camera3 {
      * write to external storage before calling this method.
      *
      * @param image the image to save
-     * @param file the file to write to
+     * @param file  the file to write to
      */
     public void saveImage(Image image, File file) {
         if (!hasWritePermission()) {
             mErrorHandler.error("Unable to save file. This application does not have the " +
                     "required permission: WRITE_EXTERNAL_STORAGE", null);
         }
-        //TODO: if you get the image from onImageAvailable it will could be closed before the ImageSaver runs
+        //this is synchronous for now because if you get the image from onImageAvailable it could be closed
+        // before the ImageSaver runs. onImageAvailable is called in a background thread anyway.
+
         //mBackgroundHandler.post(new ImageSaver(image, file));
         new ImageSaver(image, file).run();
     }
@@ -944,11 +979,6 @@ public class Camera3 {
                 mBackgroundHandler,
                 this);
     }
-
-    public interface ImageCaptureRequestConfiguration {
-        void configure(CaptureRequest.Builder request);
-    }
-
 
     public boolean hasCameraPermission() {
         return ContextCompat.checkSelfPermission(mActivity, Manifest.permission.CAMERA)

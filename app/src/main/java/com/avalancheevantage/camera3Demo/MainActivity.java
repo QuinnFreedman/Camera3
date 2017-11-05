@@ -1,21 +1,17 @@
 package com.avalancheevantage.camera3Demo;
 
 import android.Manifest;
-import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.graphics.ImageFormat;
 import android.hardware.camera2.CameraAccessException;
 import android.media.Image;
-import android.media.ImageReader;
 import android.os.Build;
 import android.support.annotation.NonNull;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
-import android.support.v4.content.ContextCompat;
 import android.util.Size;
 import android.view.MotionEvent;
-import android.view.TextureView;
 import android.view.View;
 import android.widget.Toast;
 import com.avalancheevantage.camera3.Camera3;
@@ -23,8 +19,6 @@ import com.avalancheevantage.camera3.OnImageAvailableListener;
 import com.avalancheevantage.camera3.PreviewSession;
 import com.avalancheevantage.camera3.StillImageCaptureSession;
 
-import java.io.File;
-import java.io.IOException;
 import java.util.Collections;
 
 public class MainActivity extends AppCompatActivity {
@@ -130,6 +124,6 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onPause() {
         super.onPause();
-        cameraManager.stop();
+        cameraManager.pause();
     }
 }

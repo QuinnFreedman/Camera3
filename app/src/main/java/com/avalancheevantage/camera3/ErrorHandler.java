@@ -3,10 +3,13 @@ package com.avalancheevantage.camera3;
 import android.support.annotation.Nullable;
 
 /**
- * An interface to define a way to handle camera errors. Because most of the Camera3 code is
- * asynchronous, exceptions can't always be thrown to the user.
+ * An interface to define a way to handle camera errors.
  * <p>
- * For debugging, you can use {@link Camera3#ERROR_HANDLER_DEFAULT} which just logs everything.
+ * Because most of the Camera3 code is asynchronous, exceptions can't always be thrown to the user.
+ * This interface provides a channel for Camera3 to send error messages back to the caller so that
+ * they can be displayed to the user.
+ * <p>
+ * For debugging, you can use {@link Camera3#ERROR_HANDLER_DEFAULT}, which just logs everything.
  *
  * @author Quinn Freedman
  */
