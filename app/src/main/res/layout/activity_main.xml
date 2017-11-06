@@ -8,7 +8,7 @@
         tools:context="com.avalancheevantage.camera3Demo.MainActivity">
 
 
-    <com.avalancheevantage.camera3Demo.AutoFitTextureView
+    <com.avalancheevantage.camera3.AutoFitTextureView
         android:id="@+id/preview"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"

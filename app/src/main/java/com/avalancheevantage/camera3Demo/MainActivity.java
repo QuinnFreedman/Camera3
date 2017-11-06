@@ -14,6 +14,8 @@ import android.util.Size;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Toast;
+
+import com.avalancheevantage.camera3.AutoFitTextureView;
 import com.avalancheevantage.camera3.Camera3;
 import com.avalancheevantage.camera3.OnImageAvailableListener;
 import com.avalancheevantage.camera3.PreviewSession;

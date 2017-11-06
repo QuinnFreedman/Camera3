@@ -12,7 +12,7 @@
  */
 
 
-package com.avalancheevantage.camera3Demo;
+package com.avalancheevantage.camera3;
 
 import android.content.Context;
 import android.util.AttributeSet;
@@ -68,7 +68,7 @@ public class AutoFitTextureView extends TextureView {
      * <p>
      * Use {@link #STYLE_FIT} or {@link #STYLE_FILL}
      *
-     * @param fill
+     * @param fill whether the view should fit or fill the available space
      */
     public void setFill(boolean fill) {
         this.fillStyle = fill;
