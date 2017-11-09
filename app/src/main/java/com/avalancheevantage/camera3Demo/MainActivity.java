@@ -6,13 +6,15 @@ import android.graphics.ImageFormat;
 import android.hardware.camera2.CameraAccessException;
 import android.media.Image;
 import android.os.Build;
+import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.v7.app.AppCompatActivity;
-import android.os.Bundle;
 import android.util.Log;
 import android.util.Size;
 import android.view.MotionEvent;
 import android.view.View;
+import android.widget.CompoundButton;
+import android.widget.Switch;
 import android.widget.Toast;
 
 import com.avalancheevantage.camera3.AutoFitTextureView;
@@ -28,17 +30,27 @@ public class MainActivity extends AppCompatActivity {
     private static final int REQUEST_CAMERA_PERMISSION = 999;
 
     private final Camera3 cameraManager = new Camera3(this, Camera3.ERROR_HANDLER_DEFAULT);
+    private boolean mShowPreview = true;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-    }
-
-    @Override
-    protected void onResume() {
-        super.onResume();
-        Log.d(TAG, "onResume");
+        final Switch previewSwitch = findViewById(R.id.switch_show_preview);
+        previewSwitch.setChecked(mShowPreview);
+        previewSwitch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+//                mShowPreview = isChecked;
+                cameraManager.stop();
+                Log.d(TAG, "creating useless capture session");
+                onPermissionGranted();
+            }
+        });
+        if (cameraManager.captureConfigured()) {
+            Log.d(TAG, "already started");
+            return;
+        }
         if (cameraManager.hasCameraPermission()) {
             onPermissionGranted();
         } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -48,6 +60,17 @@ public class MainActivity extends AppCompatActivity {
                     "Oops! This app does not have permission to access your camera",
                     Toast.LENGTH_LONG).show();
         }
+
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        Log.d(TAG, "onResume");
+        if (cameraManager.captureConfigured()) {
+            cameraManager.resume();
+        }
+
     }
 
     @Override
@@ -61,8 +84,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void onPermissionGranted() {
         Log.d(TAG, "onPermissionGranted");
-//        cameraManager.start();
-        String cameraId = null;
+        String cameraId;
         try {
             cameraId = cameraManager.getAvailableCameras().get(0);
         } catch (CameraAccessException e) {
@@ -71,7 +93,6 @@ public class MainActivity extends AppCompatActivity {
         }
         final AutoFitTextureView previewTexture = findViewById(R.id.preview);
         previewTexture.setFill(AutoFitTextureView.STYLE_FILL);
-//        final TextureView previewTexture = findViewById(R.id.preview);
 
         PreviewSession previewSession = cameraManager.createPreviewSession(
                 previewTexture,
@@ -110,7 +131,8 @@ public class MainActivity extends AppCompatActivity {
 //                                }
                             }
                         });
-        cameraManager.startCaptureSession(cameraId, previewSession , Collections.singletonList(captureSession));
+        cameraManager.startCaptureSession(cameraId, mShowPreview ? previewSession : null,
+                Collections.singletonList(captureSession));
         findViewById(R.id.capture).setOnTouchListener(new View.OnTouchListener() {
             @Override
             public boolean onTouch(View v, MotionEvent event) {
@@ -126,6 +148,6 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onPause() {
         super.onPause();
-        cameraManager.pause();
+//        cameraManager.pause();
     }
 }

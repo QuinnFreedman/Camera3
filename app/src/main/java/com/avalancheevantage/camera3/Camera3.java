@@ -42,6 +42,8 @@ import android.util.SparseIntArray;
 import android.view.Surface;
 import android.view.TextureView;
 
+import org.jetbrains.annotations.Contract;
+
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -123,14 +125,14 @@ public class Camera3 {
     private Integer mSensorOrientation;
     private CaptureRequest.Builder mPreviewRequestBuilder;
 
-    @Nullable
-    private PreviewSession mPreviewSession;
-    @NonNull
-    private List<StillImageCaptureSession> mStillCaptureSessions = new ArrayList<>();
-    @NonNull
-    private ErrorHandler mErrorHandler;
+//    private String mCameraId;
+//    @Nullable private PreviewSession mPreviewSession;
+//    @NonNull private List<StillImageCaptureSession> mStillCaptureSessions = new ArrayList<>();
+    @Nullable private Session mSession;
+    @NonNull private ErrorHandler mErrorHandler;
     private CaptureRequest mPreviewRequest;
-    private boolean started = false;
+    private boolean mStarted = false;
+//    private boolean mNotPaused = false;
 
     public static final ImageCaptureRequestConfiguration PRECAPTURE_CONFIG_TRIGGER_AUTO_FOCUS =
             new ImageCaptureRequestConfiguration() {
@@ -227,11 +229,16 @@ public class Camera3 {
                                     @Nullable PreviewSession previewSession,
                                     @Nullable List<StillImageCaptureSession> stillCaptureSessions) {
         try {
-            if (this.started) {
+            //noinspection ConstantConditions
+            if (cameraId == null) {
+                throw new IllegalArgumentException("cameraId cannot be null");
+            }
+            if (this.mStarted) {
                 throw new IllegalStateException(
                         "A capture session is already started. Only one can be running at a time");
             }
-            if (mPreviewSession != null && mPreviewSession.getParent() != this) {
+            if (mSession != null && mSession.getPreview() != null &&
+                    mSession.getPreview().getParent() != this) {
                 throw new IllegalArgumentException(
                         "previewSession belongs to a different instance of Camera3");
             }
@@ -244,34 +251,59 @@ public class Camera3 {
                     }
                 }
             }
-            this.started = true;
-            startBackgroundThread();
 
-            mErrorHandler.info("starting preview");
-
-            mPreviewSession = previewSession;
-
-            if (previewSession != null) {
-                TextureView previewTextureView = previewSession.getTextureView();
-
-                if (previewTextureView.isAvailable()) {
-                    openCamera(cameraId,
-                            new Size(previewTextureView.getWidth(),
-                                    previewTextureView.getHeight()));
-                } else {
-                    previewTextureView.setSurfaceTextureListener(new PreviewTextureListener(cameraId));
-                }
-            } else {
-                openCamera(cameraId, null);
+            if (stillCaptureSessions == null) {
+                stillCaptureSessions = new ArrayList<>();
             }
-
-            if (stillCaptureSessions != null) {
-                mStillCaptureSessions = stillCaptureSessions;
-            } else {
-                mStillCaptureSessions = new ArrayList<>();
-            }
+            mSession = new Session(cameraId, previewSession, stillCaptureSessions);
+            startCaptureSession(mSession);
         } catch (Exception e) {
             reportUnknownException(e);
+        }
+    }
+
+    /**
+     * Resumes the capture session established by the last call to
+     * {@link Camera3#startCaptureSession(String, PreviewSession, List)}
+     */
+    public void resume() {
+        if (mStarted) {
+            mErrorHandler.warning("calling resume when a session is already started.");
+            return;
+        }
+        if (mSession == null) {
+            throw new IllegalStateException(
+                    "No session configured. Call startCaptureSession first");
+        }
+        for (StillImageCaptureSession imageCaptureSession : mSession.getStillCaptures()) {
+            imageCaptureSession.reopenImageReader();
+        }
+        startCaptureSession(mSession);
+    }
+
+    /**
+     * Does the actual work of starting the camera session. Called by both
+     * {@link Camera3#startCaptureSession(String, PreviewSession, List)} and
+     * {@link Camera3#resume()}
+     */
+    private void startCaptureSession(@NonNull Session session) {
+        this.mStarted = true;
+        startBackgroundThread();
+
+        mErrorHandler.info("starting preview");
+
+        if (session.getPreview() != null) {
+            TextureView previewTextureView = session.getPreview().getTextureView();
+
+            if (previewTextureView.isAvailable()) {
+                openCamera(session.getCameraId(),
+                        new Size(previewTextureView.getWidth(),
+                                previewTextureView.getHeight()));
+            } else {
+                previewTextureView.setSurfaceTextureListener(new PreviewTextureListener(session.getCameraId()));
+            }
+        } else {
+            openCamera(session.getCameraId(), null);
         }
     }
 
@@ -285,16 +317,23 @@ public class Camera3 {
     public void pause() {
         try {
             mErrorHandler.info("pause");
-            if (!this.started) {
+            if (!this.mStarted) {
                 mErrorHandler.warning("Calling `pause()` when Camera3 is already stopped.");
                 return;
             }
             closeCamera();
             stopBackgroundThread();
-            this.started = false;
+            this.mStarted = false;
         } catch (Exception e) {
             reportUnknownException(e);
         }
+    }
+
+    public void stop() {
+        if (this.isStarted()) {
+            pause();
+        }
+        mSession = null;
     }
 
     /**
@@ -314,8 +353,9 @@ public class Camera3 {
      */
     public void captureImage(@NonNull StillImageCaptureSession session,
                              @Nullable ImageCaptureRequestConfiguration precapture,
-                             ImageCaptureRequestConfiguration capture) {
-        if (!this.started) {
+                             @NonNull ImageCaptureRequestConfiguration capture) {
+        //TODO make capture nullable to be consistent with precapture
+        if (!this.mStarted) {
             throw new IllegalStateException("trying to call captureImage(...) " +
                     "but a capture session has not been started yet");
         }
@@ -323,6 +363,17 @@ public class Camera3 {
                 .getParent() != this) {
             throw new IllegalArgumentException(
                     "This StillImageCaptureSession belongs to another Camera3 instance");
+        }
+        if (mSession == null) {
+            throw new IllegalStateException(
+                    "Internal error: Somehow the session is null even though started is true");
+        }
+
+        if (!mSession.getStillCaptures().contains(session)) {
+            mErrorHandler.error(
+                    "StillImageCaptureSession is not configured with the current camera session",
+                    null);
+            return;
         }
 
         mErrorHandler.info("Adding capture request to queue...");
@@ -333,7 +384,7 @@ public class Camera3 {
         if (mState == CameraState.PREVIEW) {
             mErrorHandler.info(
                     "Camera was in PREVIEW state, so request will be resolved immediately");
-            if (mPreviewSession == null) {
+            if (mSession.getPreview() == null) {
                 captureStillPicture();
             } else {
                 lockFocus();
@@ -347,7 +398,15 @@ public class Camera3 {
         return mErrorHandler;
     }
 
-    private void openCamera(String cameraId, @Nullable Size previewTextureSize) /*throws CameraAccessException*/ {
+    public boolean captureConfigured() {
+        return mSession != null;
+    }
+
+    public boolean isStarted() {
+        return mStarted;
+    }
+
+    private void openCamera(String cameraId, @Nullable Size previewTextureSize) {
         mErrorHandler.info("opening camera");
         mErrorHandler.info("Preview texture size == " + previewTextureSize);
 
@@ -355,13 +414,18 @@ public class Camera3 {
         if (sensorOrientation == null) {
             return;
         }
-        if (mPreviewSession != null) {
+        if (requireNotNull(mSession,
+                "Internal error: session is null when calling openCamera()")) {
+            return;
+        }
+        if (mSession.getPreview() != null) {
             if (previewTextureSize == null) {
                 mErrorHandler.warning("Preview Session is not null but previewTextureSize is null");
             } else {
-                setUpPreviewOutput(cameraId, previewTextureSize, sensorOrientation, mPreviewSession,
+                setUpPreviewOutput(cameraId, previewTextureSize, sensorOrientation,
+                        mSession.getPreview(), mActivity, mErrorHandler);
+                configureTransform(mSession.getPreview(), previewTextureSize,
                         mActivity, mErrorHandler);
-                configureTransform(mPreviewSession, previewTextureSize, mActivity, mErrorHandler);
             }
         }
         CameraManager manager = (CameraManager) mActivity.getSystemService(Context.CAMERA_SERVICE);
@@ -419,7 +483,11 @@ public class Camera3 {
                 mCameraDevice.close();
                 mCameraDevice = null;
             }
-            for (StillImageCaptureSession imageCaptureSession : mStillCaptureSessions) {
+            if (mSession == null) {
+                mErrorHandler.warning("Internal Error: session null when closing camera");
+                return;
+            }
+            for (StillImageCaptureSession imageCaptureSession : mSession.getStillCaptures()) {
                 imageCaptureSession.closeImageReader();
 
             }
@@ -466,6 +534,7 @@ public class Camera3 {
             List<Surface> targetSurfaces = new ArrayList<>(Arrays.asList(surface));
             targetSurfaces.addAll(getCaptureTargetSurfaces());
 
+            Log.d(TAG, "target surfaces == "+targetSurfaces);
             mCameraDevice.createCaptureSession(targetSurfaces,
                     new CameraCaptureSession.StateCallback() {
 
@@ -539,7 +608,11 @@ public class Camera3 {
     @NonNull
     private List<Surface> getCaptureTargetSurfaces() {
         List<Surface> targetSurfaces = new ArrayList<>();
-        for (StillImageCaptureSession captureSession : mStillCaptureSessions) {
+        if (requireNotNull(mSession,
+                "Internal error: session is null when calling getCaptureTargetSurfaces()")) {
+            return new ArrayList<>();
+        }
+        for (StillImageCaptureSession captureSession : mSession.getStillCaptures()) {
             if (captureSession == null) {
                 mErrorHandler.error("a StillImageCaptureSession is null", null);
                 continue;
@@ -655,8 +728,8 @@ public class Camera3 {
 
         @Override
         public void onSurfaceTextureSizeChanged(SurfaceTexture texture, int width, int height) {
-            if (mPreviewSession != null) {
-                configureTransform(mPreviewSession,
+            if (mSession != null && mSession.getPreview() != null) {
+                configureTransform(mSession.getPreview(),
                         new Size(width, height),
                         mActivity,
                         mErrorHandler);
@@ -685,8 +758,13 @@ public class Camera3 {
             mCameraOpenCloseLock.release();
             mCameraDevice = cameraDevice;
 
-            if (mPreviewSession != null) {
-                createPreviewCameraCaptureSession(mPreviewSession);
+            if (requireNotNull(mSession,
+                    "Internal error: session is null when calling openCamera()")) {
+                return;
+            }
+
+            if (mSession.getPreview() != null) {
+                createPreviewCameraCaptureSession(mSession.getPreview());
             } else {
                 createCameraCaptureSessionWithoutPreview();
             }
@@ -741,7 +819,7 @@ public class Camera3 {
                                 ImageCaptureRequest request = mCaptureRequest;//mCaptureRequestQueue.peek();
                                 if (request == null) {
                                     mErrorHandler.error(
-                                            "Internal error: Request Queue was empty when trying to run precapture",
+                                            "Internal Error: Request Queue was empty when trying to run precapture",
                                             null);
                                     return;
                                 }
@@ -814,7 +892,7 @@ public class Camera3 {
      */
     private void captureStillPicture() {
         if (mCameraDevice == null) {
-            mErrorHandler.error("Internal error: mCameraDevice is null", null);
+            mErrorHandler.error("Internal Error: mCameraDevice is null", null);
             return;
         }
 
@@ -864,6 +942,10 @@ public class Camera3 {
 
             mCaptureSession.stopRepeating();
             mCaptureSession.abortCaptures();
+            //checking for bug
+            //exception always comes up when session started in onCreate
+            Log.d(TAG, "captureCallback == "+captureCallback);
+            Log.d(TAG, "imageReader.getSurface() == "+imageReader.getSurface());
             //TODO check for bug: got an IllegalArgumentException here:
             mCaptureSession.capture(captureBuilder.build(), captureCallback, null);
             mState = CameraState.PREVIEW;
@@ -881,6 +963,7 @@ public class Camera3 {
         mErrorHandler.error("Oops! Something went wrong.", e);
     }
 
+    @Contract("null, _ -> true")
     private boolean requireNotNull(Object o, String message) {
         return PrivateUtils.requireNotNull(o, message, mErrorHandler);
     }
@@ -897,7 +980,6 @@ public class Camera3 {
         if (requireNotNull(manager, NULL_MANAGER_MESSAGE)) {
             return null;
         }
-        assert manager != null;
         return manager.getCameraCharacteristics(cameraId);
     }
 
@@ -992,4 +1074,36 @@ public class Camera3 {
 
     //TODO: implement a acquirePermission(callback) convenience method similar to Dexter
     //https://github.com/Karumi/Dexter/tree/master/dexter/src/main/java/com/karumi/dexter
+
+    private static final class Session {
+        @NonNull private final String cameraId;
+        @Nullable private final PreviewSession previewSession;
+        @NonNull private final List<StillImageCaptureSession> stillImageCaptureSessions;
+
+        @Contract(pure = true)
+        @NonNull
+        String getCameraId() {
+            return cameraId;
+        }
+
+        @Contract(pure = true)
+        @Nullable
+        PreviewSession getPreview() {
+            return previewSession;
+        }
+
+        @Contract(pure = true)
+        @NonNull
+        List<StillImageCaptureSession> getStillCaptures() {
+            return stillImageCaptureSessions;
+        }
+
+        Session(@NonNull String cameraId,
+                       @Nullable PreviewSession previewSession,
+                       @NonNull List<StillImageCaptureSession> stillImageCaptureSessions) {
+            this.cameraId = cameraId;
+            this.previewSession = previewSession;
+            this.stillImageCaptureSessions = stillImageCaptureSessions;
+        }
+    }
 }

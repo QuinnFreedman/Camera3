@@ -18,11 +18,12 @@ import android.content.Context;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.TextureView;
-import android.view.ViewGroup;
 
 /**
  * A custom subclass of {@link TextureView} that will automatically adjust its size to fit a given
  * aspect ratio. This is very useful for displaying camera previews
+ *
+ * @author Quinn Freedman
  */
 public class AutoFitTextureView extends TextureView {
     private static final String TAG = "AutoFitTextureView";

@@ -20,7 +20,7 @@ import java.util.List;
  * @author Quinn Freedman
  */
 
-public class PreviewSession {
+final public class PreviewSession {
     @NonNull
     private final TextureView previewTextureView;
     @Nullable
