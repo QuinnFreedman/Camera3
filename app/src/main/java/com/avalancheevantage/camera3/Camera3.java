@@ -80,6 +80,8 @@ public class Camera3 {
      * Max preview height that is guaranteed by Camera2 API
      */
     static final int MAX_PREVIEW_HEIGHT = 1080;
+    @Nullable
+    private Runnable mOnSessionStartedCallback;
 
 
     private enum CameraState {
@@ -126,11 +128,13 @@ public class Camera3 {
     private Integer mSensorOrientation;
     private CaptureRequest.Builder mPreviewRequestBuilder;
 
-//    private String mCameraId;
+    //    private String mCameraId;
 //    @Nullable private PreviewSession mPreviewSession;
 //    @NonNull private List<StillImageCaptureSession> mStillCaptureSessions = new ArrayList<>();
-    @Nullable private Session mSession;
-    @NonNull private ErrorHandler mErrorHandler;
+    @Nullable
+    private Session mSession;
+    @NonNull
+    private ErrorHandler mErrorHandler;
     private CaptureRequest mPreviewRequest;
     private boolean mStarted = false;
 //    private boolean mNotPaused = false;
@@ -180,7 +184,8 @@ public class Camera3 {
      * Creates a new Camera3 manager instance. Only one such manager should have to exist
      * per {@link Activity}. Many different preview sessions, capture sessions, and capture
      * requests can exist for one Camera3 object.
-     *  @param context     The context from which to access the camera. Should usually just be the
+     *
+     * @param context      The context from which to access the camera. Should usually just be the
      *                     current activity
      * @param errorHandler An {@link ErrorHandler} to handle any errors that arise over the lifetime
      */
@@ -213,6 +218,15 @@ public class Camera3 {
     }
 
     /**
+     * @see Camera3#startCaptureSession(String, PreviewSession, List, Runnable)
+     */
+    public void startCaptureSession(@NonNull String cameraId,
+                                    @Nullable PreviewSession previewSession,
+                                    @Nullable List<StillImageCaptureSession> stillCaptureSessions) {
+        startCaptureSession(cameraId, previewSession, stillCaptureSessions, null);
+    }
+
+    /**
      * Starts a new session. Only one session can be open at a time.
      *
      * @param cameraId             which camera to use (from {@link Camera3#getAvailableCameras()}).
@@ -221,40 +235,53 @@ public class Camera3 {
      * @param stillCaptureSessions a list of zero or more {@link StillImageCaptureSession} sessions,
      *                             or null if no still images will be captured. Usually only one
      *                             is required.
+     * @param onSessionStarted     an optional callback that will be called to notify the user when
+     *                             the camera has been opened and the capture session has been
+     *                             started.
      * @see Camera3#createPreviewSession(TextureView, CaptureRequest.Builder, PreviewSizeCallback)
      * @see Camera3#createStillImageCaptureSession(int, Size, OnImageAvailableListener)
      */
     public void startCaptureSession(@NonNull String cameraId,
                                     @Nullable PreviewSession previewSession,
-                                    @Nullable List<StillImageCaptureSession> stillCaptureSessions) {
+                                    @Nullable List<StillImageCaptureSession> stillCaptureSessions,
+                                    @Nullable Runnable onSessionStarted) {
         try {
             //noinspection ConstantConditions
             if (cameraId == null) {
                 throw new IllegalArgumentException("cameraId cannot be null");
             }
             if (this.mStarted) {
-                throw new IllegalStateException(
-                        "A capture session is already started. Only one can be running at a time");
+                mErrorHandler.warning(
+                        "A capture session is already started. The current session will be terminated");
+                //TODO it is redundant to close and then re-open some things. room for optimization
+                pause();
             }
             if (mSession != null && mSession.getPreview() != null &&
                     mSession.getPreview().getParent() != this) {
                 throw new IllegalArgumentException(
                         "previewSession belongs to a different instance of Camera3");
             }
-            if (stillCaptureSessions != null) {
-                for (int i = 0; i < stillCaptureSessions.size(); i++) {
-                    if (stillCaptureSessions.get(i).getParent() != this) {
-                        throw new IllegalArgumentException(
-                                "StillImageCaptureSession number " + i +
-                                        " belongs to a different instance of Camera3");
-                    }
-                }
-            }
+//            if (stillCaptureSessions != null) {
+//                for (int i = 0; i < stillCaptureSessions.size(); i++) {
+//                    if (stillCaptureSessions.get(i).getParent() != this) {
+//                        throw new IllegalArgumentException(
+//                                "StillImageCaptureSession number " + i +
+//                                        " belongs to a different instance of Camera3");
+//                    }
+//                }
+//            }
 
             if (stillCaptureSessions == null) {
                 stillCaptureSessions = new ArrayList<>();
             }
+
+            if (previewSession == null && stillCaptureSessions.isEmpty()) {
+                throw new IllegalArgumentException(
+                        "previewSession is null and stillCaptureSessions is null or empty; " +
+                                "no targets for capture session");
+            }
             mSession = new Session(cameraId, previewSession, stillCaptureSessions);
+            mOnSessionStartedCallback = onSessionStarted;
             startCaptureSession(mSession);
         } catch (Exception e) {
             reportUnknownException(e);
@@ -274,9 +301,6 @@ public class Camera3 {
             throw new IllegalStateException(
                     "No session configured. Call startCaptureSession first");
         }
-        for (StillImageCaptureSession imageCaptureSession : mSession.getStillCaptures()) {
-            imageCaptureSession.reopenImageReader();
-        }
         startCaptureSession(mSession);
     }
 
@@ -288,6 +312,9 @@ public class Camera3 {
     private void startCaptureSession(@NonNull Session session) {
         this.mStarted = true;
         startBackgroundThread();
+        for (StillImageCaptureSession imageCaptureSession : session.getStillCaptures()) {
+            imageCaptureSession.openImageReader(mBackgroundHandler);
+        }
 
         mErrorHandler.info("starting preview");
 
@@ -309,9 +336,9 @@ public class Camera3 {
     /**
      * Stops background threads and frees the camera.
      * <p>
-     * <code>pause</code> <b>must</b> be called from {@link Activity#onPause()} form the activity
+     * <code>pause</code> <b>must</b> be called in {@link Activity#onPause()} form the activity
      * that started the session. Otherwise, the app could close without relinquishing control of the
-     * camera
+     * camera.
      */
     public void pause() {
         try {
@@ -326,13 +353,6 @@ public class Camera3 {
         } catch (Exception e) {
             reportUnknownException(e);
         }
-    }
-
-    public void stop() {
-        if (this.isStarted()) {
-            pause();
-        }
-        mSession = null;
     }
 
     /**
@@ -353,43 +373,49 @@ public class Camera3 {
     public void captureImage(@NonNull StillImageCaptureSession session,
                              @Nullable ImageCaptureRequestConfiguration precapture,
                              @NonNull ImageCaptureRequestConfiguration capture) {
-        //TODO make capture nullable to be consistent with precapture
-        if (!this.mStarted) {
-            throw new IllegalStateException("trying to call captureImage(...) " +
-                    "but a capture session has not been started yet");
-        }
-        if (Objects.requireNonNull(session, "capture session is null")
-                .getParent() != this) {
-            throw new IllegalArgumentException(
-                    "This StillImageCaptureSession belongs to another Camera3 instance");
-        }
-        if (mSession == null) {
-            throw new IllegalStateException(
-                    "Internal error: Somehow the session is null even though started is true");
-        }
+        try {
+            //TODO make capture nullable to be consistent with precapture
+            if (!this.mStarted) {
+                throw new IllegalStateException("trying to call captureImage(...) " +
+                        "but a capture session has not been started yet");
+            }
+            Objects.requireNonNull(session, "capture session is null");
+//        if (Objects.requireNonNull(session, "capture session is null")
+//                .getParent() != this) {
+//            throw new IllegalArgumentException(
+//                    "This StillImageCaptureSession belongs to another Camera3 instance");
+//        }
+            if (mSession == null) {
+                throw new IllegalStateException(
+                        "Internal error: Somehow the session is null even though started is true");
+            }
 
-        if (!mSession.getStillCaptures().contains(session)) {
-            mErrorHandler.error(
-                    "StillImageCaptureSession is not configured with the current camera session",
-                    null);
-            return;
-        }
+            if (!mSession.getStillCaptures().contains(session)) {
+                mErrorHandler.error(
+                        "StillImageCaptureSession is not configured with the current camera session",
+                        null);
+                return;
+            }
 
-        mErrorHandler.info("Adding capture request to queue...");
+            mErrorHandler.info("Adding capture request to queue...");
 //        mCaptureRequestQueue.add(
 //                new ImageCaptureRequest(session, precapture, capture, mErrorHandler));
-        mCaptureRequest = new ImageCaptureRequest(session, precapture, capture, mErrorHandler);
+            mCaptureRequest = new ImageCaptureRequest(session, precapture, capture, mErrorHandler);
 
-        if (mState == CameraState.PREVIEW) {
-            mErrorHandler.info(
-                    "Camera was in PREVIEW state, so request will be resolved immediately");
-            if (mSession.getPreview() == null) {
-                captureStillPicture();
+            if (mState == CameraState.PREVIEW) {
+                mErrorHandler.info(
+                        "Camera was in PREVIEW state, so request will be resolved immediately");
+                if (mSession.getPreview() == null) {
+                    captureStillPicture();
+                } else {
+                    lockFocus();
+                }
             } else {
-                lockFocus();
+                mErrorHandler.warning("trying to capture an image when state is " + mState.name());
             }
-        } else {
-            mErrorHandler.warning("trying to capture an image when state is " + mState.name());
+
+        } catch (Exception e) {
+            reportUnknownException(e);
         }
     }
 
@@ -533,7 +559,7 @@ public class Camera3 {
             List<Surface> targetSurfaces = new ArrayList<>(Arrays.asList(surface));
             targetSurfaces.addAll(getCaptureTargetSurfaces());
 
-            Log.d(TAG, "target surfaces == "+targetSurfaces);
+            Log.d(TAG, "target surfaces == " + targetSurfaces);
             mCameraDevice.createCaptureSession(targetSurfaces,
                     new CameraCaptureSession.StateCallback() {
 
@@ -558,6 +584,10 @@ public class Camera3 {
                                 mPreviewRequest = mPreviewRequestBuilder.build();
                                 mCaptureSession.setRepeatingRequest(mPreviewRequest,
                                         mCaptureCallback, mBackgroundHandler);
+                                if (mOnSessionStartedCallback != null) {
+                                    mOnSessionStartedCallback.run();
+                                    mOnSessionStartedCallback = null;
+                                }
                             } catch (CameraAccessException e) {
                                 reportCameraAccessException(e);
                             }
@@ -588,8 +618,12 @@ public class Camera3 {
                                 return;
                             }
 
-                            // When the session is ready, we start displaying the preview.
                             mCaptureSession = cameraCaptureSession;
+
+                            if (mOnSessionStartedCallback != null) {
+                                mOnSessionStartedCallback.run();
+                                mOnSessionStartedCallback = null;
+                            }
                         }
 
                         @Override
@@ -943,8 +977,8 @@ public class Camera3 {
             mCaptureSession.abortCaptures();
             //checking for bug
             //exception always comes up when session started in onCreate
-            Log.d(TAG, "captureCallback == "+captureCallback);
-            Log.d(TAG, "imageReader.getSurface() == "+imageReader.getSurface());
+            Log.d(TAG, "captureCallback == " + captureCallback);
+            Log.d(TAG, "imageReader.getSurface() == " + imageReader.getSurface());
             //TODO check for bug: got an IllegalArgumentException here:
             mCaptureSession.capture(captureBuilder.build(), captureCallback, null);
             mState = CameraState.PREVIEW;
@@ -1054,10 +1088,15 @@ public class Camera3 {
     createStillImageCaptureSession(int imageFormat,
                                    @NonNull Size imageSize,
                                    @NonNull OnImageAvailableListener onImageAvailableListener) {
+        if (imageSize == null) {
+            throw new IllegalArgumentException("imageSize cannot be null");
+        }
+        if (onImageAvailableListener == null) {
+            throw new IllegalArgumentException("onImageAvailableListener cannot be null");
+        }
         return new StillImageCaptureSession(
                 imageFormat, imageSize,
                 onImageAvailableListener,
-                mBackgroundHandler,
                 this);
     }
 
@@ -1075,9 +1114,12 @@ public class Camera3 {
     //https://github.com/Karumi/Dexter/tree/master/dexter/src/main/java/com/karumi/dexter
 
     private static final class Session {
-        @NonNull private final String cameraId;
-        @Nullable private final PreviewSession previewSession;
-        @NonNull private final List<StillImageCaptureSession> stillImageCaptureSessions;
+        @NonNull
+        private final String cameraId;
+        @Nullable
+        private final PreviewSession previewSession;
+        @NonNull
+        private final List<StillImageCaptureSession> stillImageCaptureSessions;
 
         @Contract(pure = true)
         @NonNull
@@ -1098,8 +1140,8 @@ public class Camera3 {
         }
 
         Session(@NonNull String cameraId,
-                       @Nullable PreviewSession previewSession,
-                       @NonNull List<StillImageCaptureSession> stillImageCaptureSessions) {
+                @Nullable PreviewSession previewSession,
+                @NonNull List<StillImageCaptureSession> stillImageCaptureSessions) {
             this.cameraId = cameraId;
             this.previewSession = previewSession;
             this.stillImageCaptureSessions = stillImageCaptureSessions;

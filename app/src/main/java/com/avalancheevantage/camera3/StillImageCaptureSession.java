@@ -30,9 +30,9 @@ public class StillImageCaptureSession {
     @NonNull
     private final Camera3 parent;
     private final ImageReader.OnImageAvailableListener imageAvailableListener;
-    private final Handler backgroundHandler;
     @Nullable
     private Size imageSize;
+    @Nullable
     private ImageReader imageReader;
 
     public int getImageFormat() {
@@ -47,19 +47,10 @@ public class StillImageCaptureSession {
     StillImageCaptureSession(final int imageFormat,
                              @NonNull final Size imageSize,
                              @NonNull final OnImageAvailableListener onImageAvailableListener,
-                             @NonNull final Handler backgroundHandler,
                              @NonNull final Camera3 parent) {
-        //TODO move checks to factory method
-        if (imageSize == null) {
-            throw new IllegalArgumentException("imageSize cannot be null");
-        }
-        if (onImageAvailableListener == null) {
-            throw new IllegalArgumentException("onImageAvailableListener cannot be null");
-        }
         this.parent = parent;
         this.imageFormat = imageFormat;
         this.imageSize = imageSize;
-        this.backgroundHandler = backgroundHandler;
 
         this.imageAvailableListener = new ImageReader.OnImageAvailableListener() {
             @Override
@@ -76,10 +67,10 @@ public class StillImageCaptureSession {
                 }
             }
         };
-        reopenImageReader();
 
     }
 
+    @Nullable
     ImageReader getImageReader() {
         return imageReader;
     }
@@ -91,7 +82,7 @@ public class StillImageCaptureSession {
         }
     }
 
-    void reopenImageReader() {
+    void openImageReader(@NonNull final Handler backgroundHandler) {
         this.imageReader = ImageReader.newInstance(imageSize.getWidth(), imageSize.getHeight(),
                 imageFormat, MAX_IMAGES);
         this.imageReader.setOnImageAvailableListener(

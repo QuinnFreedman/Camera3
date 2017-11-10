@@ -42,8 +42,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
 //                mShowPreview = isChecked;
-                cameraManager.stop();
-                Log.d(TAG, "creating useless capture session");
+                cameraManager.pause();
                 onPermissionGranted();
             }
         });
