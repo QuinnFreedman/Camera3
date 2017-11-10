@@ -55,6 +55,7 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
 import static com.avalancheevantage.camera3.PrivateUtils.configureTransform;
+import static com.avalancheevantage.camera3.PrivateUtils.getScreenRotation;
 import static com.avalancheevantage.camera3.PrivateUtils.setUpPreviewOutput;
 
 /**
@@ -121,7 +122,7 @@ public class Camera3 {
     private HandlerThread mBackgroundThread;
     private Handler mBackgroundHandler;
 
-    private Activity mActivity;
+    private Context mContext;
     private Integer mSensorOrientation;
     private CaptureRequest.Builder mPreviewRequestBuilder;
 
@@ -155,7 +156,7 @@ public class Camera3 {
 
     @Nullable
     private CameraCharacteristics getCameraCharacteristics(String cameraId) {
-        return PrivateUtils.getCameraCharacteristics(cameraId, mActivity, mErrorHandler);
+        return PrivateUtils.getCameraCharacteristics(cameraId, mContext, mErrorHandler);
     }
 
     @Nullable
@@ -179,18 +180,16 @@ public class Camera3 {
      * Creates a new Camera3 manager instance. Only one such manager should have to exist
      * per {@link Activity}. Many different preview sessions, capture sessions, and capture
      * requests can exist for one Camera3 object.
-     *
-     * @param activity     The context from which to access the camera. Should usually just be the
+     *  @param context     The context from which to access the camera. Should usually just be the
      *                     current activity
      * @param errorHandler An {@link ErrorHandler} to handle any errors that arise over the lifetime
-     *                     of this Camera3 object.
      */
-    public Camera3(@NonNull Activity activity, @Nullable ErrorHandler errorHandler) {
+    public Camera3(@NonNull Context context, @Nullable ErrorHandler errorHandler) {
         //noinspection ConstantConditions
-        if (activity == null) {
+        if (context == null) {
             throw new IllegalArgumentException("activity is null in `new Camera3(activity, ...)`");
         }
-        this.mActivity = activity;
+        this.mContext = context;
         if (errorHandler != null) {
             mErrorHandler = errorHandler;
         } else {
@@ -423,12 +422,12 @@ public class Camera3 {
                 mErrorHandler.warning("Preview Session is not null but previewTextureSize is null");
             } else {
                 setUpPreviewOutput(cameraId, previewTextureSize, sensorOrientation,
-                        mSession.getPreview(), mActivity, mErrorHandler);
+                        mSession.getPreview(), mContext, mErrorHandler);
                 configureTransform(mSession.getPreview(), previewTextureSize,
-                        mActivity, mErrorHandler);
+                        mContext, mErrorHandler);
             }
         }
-        CameraManager manager = (CameraManager) mActivity.getSystemService(Context.CAMERA_SERVICE);
+        CameraManager manager = (CameraManager) mContext.getSystemService(Context.CAMERA_SERVICE);
         try {
             if (!mCameraOpenCloseLock.tryAcquire(2500, TimeUnit.MILLISECONDS)) {
                 mErrorHandler.error("Time out waiting to acquire camera lock.", null);
@@ -731,7 +730,7 @@ public class Camera3 {
             if (mSession != null && mSession.getPreview() != null) {
                 configureTransform(mSession.getPreview(),
                         new Size(width, height),
-                        mActivity,
+                        mContext,
                         mErrorHandler);
             }
         }
@@ -920,7 +919,7 @@ public class Camera3 {
             captureBuilder.set(CaptureRequest.CONTROL_AF_MODE,
                     CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
 
-            int rotation = mActivity.getWindowManager().getDefaultDisplay().getRotation();
+            int rotation = getScreenRotation(mContext, mErrorHandler);
             captureBuilder.set(CaptureRequest.JPEG_ORIENTATION, getOrientation(rotation));
 
             request.configureCapture(captureBuilder);
@@ -970,13 +969,13 @@ public class Camera3 {
 
     /* Public Utils */
     public List<String> getAvailableCameras() throws CameraAccessException {
-        CameraManager manager = (CameraManager) mActivity.getSystemService(Context.CAMERA_SERVICE);
+        CameraManager manager = (CameraManager) mContext.getSystemService(Context.CAMERA_SERVICE);
         return Collections.unmodifiableList(Arrays.asList(manager.getCameraIdList()));
     }
 
     @Nullable
     public CameraCharacteristics getCameraInfo(String cameraId) throws CameraAccessException {
-        CameraManager manager = (CameraManager) mActivity.getSystemService(Context.CAMERA_SERVICE);
+        CameraManager manager = (CameraManager) mContext.getSystemService(Context.CAMERA_SERVICE);
         if (requireNotNull(manager, NULL_MANAGER_MESSAGE)) {
             return null;
         }
@@ -1063,12 +1062,12 @@ public class Camera3 {
     }
 
     public boolean hasCameraPermission() {
-        return ContextCompat.checkSelfPermission(mActivity, Manifest.permission.CAMERA)
+        return ContextCompat.checkSelfPermission(mContext, Manifest.permission.CAMERA)
                 == PackageManager.PERMISSION_GRANTED;
     }
 
     public boolean hasWritePermission() {
-        return ContextCompat.checkSelfPermission(mActivity, Manifest.permission.WRITE_EXTERNAL_STORAGE)
+        return ContextCompat.checkSelfPermission(mContext, Manifest.permission.WRITE_EXTERNAL_STORAGE)
                 == PackageManager.PERMISSION_GRANTED;
     }
 

@@ -1,20 +1,28 @@
 package com.avalancheevantage.camera3;
 
-import android.app.Activity;
 import android.content.Context;
-import android.graphics.*;
+import android.graphics.Matrix;
+import android.graphics.Point;
+import android.graphics.RectF;
+import android.graphics.SurfaceTexture;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraManager;
 import android.hardware.camera2.params.StreamConfigurationMap;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
-import android.util.Log;
 import android.util.Size;
 import android.view.Surface;
+import android.view.WindowManager;
+
 import org.jetbrains.annotations.Contract;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Objects;
 
 import static com.avalancheevantage.camera3.Camera3.MAX_PREVIEW_HEIGHT;
 import static com.avalancheevantage.camera3.Camera3.MAX_PREVIEW_WIDTH;
@@ -43,11 +51,36 @@ class PrivateUtils {
         errorHandler.error("Camera Access Exception", e);
     }
 
+    static int getScreenRotation(@NonNull Context context,
+                                 @NonNull ErrorHandler errorHandler) {
+        WindowManager windowManager =
+                (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);
+        if (windowManager == null) {
+            errorHandler.warning("Unable to get Window Manager from context");
+            return Surface.ROTATION_0;
+        }
+        return windowManager.getDefaultDisplay().getRotation();
+    }
+
+    @NonNull
+    static Point getScreenSize(@NonNull Context context,
+                               @NonNull ErrorHandler errorHandler) {
+        WindowManager windowManager =
+                (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);
+        if (windowManager == null) {
+            errorHandler.warning("Unable to get Window Manager from context");
+            return new Point();
+        }
+        Point displaySize = new Point();
+        windowManager.getDefaultDisplay().getSize(displaySize);
+        return displaySize;
+    }
+
     @Nullable
     static CameraCharacteristics getCameraCharacteristics(String cameraId,
-                                                          Activity activity,
+                                                          Context context,
                                                           ErrorHandler errorHandler) {
-        CameraManager manager = (CameraManager) activity.getSystemService(Context.CAMERA_SERVICE);
+        CameraManager manager = (CameraManager) context.getSystemService(Context.CAMERA_SERVICE);
 
         if (manager == null) {
             errorHandler.error(NULL_MANAGER_MESSAGE, null);
@@ -64,20 +97,20 @@ class PrivateUtils {
     /**
      * Configures the necessary {@link android.graphics.Matrix} transformation for the
      * TextureView for a PreviewSession
-     *
-     * @param previewSession     The PreviewSession to configure
+     *  @param previewSession     The PreviewSession to configure
      * @param previewTextureSize the size of the texture to transform the preview to fit.
+     * @param context
      */
     @SuppressWarnings("SuspiciousNameCombination")
     static void configureTransform(@NonNull PreviewSession previewSession,
                                    @NonNull Size previewTextureSize,
-                                   @NonNull Activity activity,
+                                   @NonNull Context context,
                                    @NonNull ErrorHandler errorHandler) {
         errorHandler.info("Configuring preview transform matrix...");
         //noinspection ConstantConditions
         if (requireNotNull(previewSession, "preview session is null when trying to configure preview transform", errorHandler) ||
             requireNotNull(previewSession.getTextureView(), "textureView is null when trying to configure preview transform", errorHandler) ||
-            requireNotNull(activity, "activity is null when trying to configure preview transform", errorHandler)
+            requireNotNull(context, "context is null when trying to configure preview transform", errorHandler)
         ) {
             return;
         }
@@ -87,7 +120,7 @@ class PrivateUtils {
         int previewWidth = previewSession.getPreviewSize().getWidth();
         int previewHeight = previewSession.getPreviewSize().getHeight();
 
-        int rotation = activity.getWindowManager().getDefaultDisplay().getRotation();
+        int rotation = getScreenRotation(context, errorHandler);
         Matrix matrix = new Matrix();
         RectF viewRect = new RectF(0, 0, viewWidth, viewHeight);
         RectF bufferRect = new RectF(0, 0, previewHeight, previewWidth);
@@ -113,13 +146,13 @@ class PrivateUtils {
                                    @NonNull Size previewTextureSize,
                                    int sensorOrientation,
                                    @NonNull PreviewSession previewSession,
-                                   @NonNull Activity activity,
+                                   @NonNull Context context,
                                    @NonNull ErrorHandler errorHandler) {
         //noinspection ConstantConditions
         if (
             requireNotNull(previewSession, "Cannot configure null preview session", errorHandler) ||
             requireNotNull(previewTextureSize, "previewTextureSize is null", errorHandler) ||
-            requireNotNull(activity, "activity is null in setUpPreviewOutput()", errorHandler) ||
+            requireNotNull(context, "context is null in setUpPreviewOutput()", errorHandler) ||
             requireNotNull(cameraId, "cameraId is null in setUpPreviewOutput()", errorHandler)
         ) {
             return;
@@ -128,7 +161,7 @@ class PrivateUtils {
 
         // Find out if we need to swap dimension to get the preview size relative to sensor
         // coordinate.
-        int displayRotation = activity.getWindowManager().getDefaultDisplay().getRotation();
+        int displayRotation = getScreenRotation(context, errorHandler);
 
         boolean swappedDimensions = false;
         switch (displayRotation) {
@@ -148,8 +181,7 @@ class PrivateUtils {
                 errorHandler.warning("Display rotation is invalid: " + displayRotation);
         }
 
-        Point displaySize = new Point();
-        activity.getWindowManager().getDefaultDisplay().getSize(displaySize);
+        Point displaySize = getScreenSize(context, errorHandler);
         int rotatedPreviewWidth = previewTextureSize.getWidth();
         int rotatedPreviewHeight = previewTextureSize.getHeight();
         int maxPreviewWidth = displaySize.x;
@@ -170,9 +202,10 @@ class PrivateUtils {
             maxPreviewHeight = MAX_PREVIEW_HEIGHT;
         }
 
-        CameraCharacteristics characteristics = getCameraCharacteristics(cameraId, activity, errorHandler);
+        CameraCharacteristics characteristics = getCameraCharacteristics(cameraId, context, errorHandler);
         if (characteristics == null) {
             errorHandler.error("Camera Characteristics were null", null);
+            return;
         }
         StreamConfigurationMap map = characteristics.get(
                 CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
@@ -200,7 +233,7 @@ class PrivateUtils {
         //notify the user what preview size we chose
         Camera3.PreviewSizeCallback sizeCallback = previewSession.getPreviewSizeSelectedCallback();
         if (sizeCallback != null) {
-            int orientation = activity.getResources().getConfiguration().orientation;
+            int orientation = context.getResources().getConfiguration().orientation;
             sizeCallback.previewSizeSelected(orientation, optimalSize);
         }
 
