@@ -71,4 +71,33 @@ public class TestUtils {
         @Override
         public void info(String message) {}
     }
+
+    public static class ExpectWarning implements ErrorHandler {
+        @NonNull
+        private final String warning;
+        @NonNull
+        private final Waiter waiter;
+
+        ExpectWarning(@NonNull final String warning, @NonNull final Waiter waiter) {
+            this.warning = warning;
+            this.waiter = waiter;
+        }
+        private boolean gotWarning = false;
+        public boolean gotWarning() {
+            return gotWarning;
+        }
+        @Override
+        public void error(String message, @Nullable Exception e) {
+            throw new ErrorHandlerErrorException(message, e);
+        }
+
+        @Override
+        public void warning(String message) {
+            waiter.assertEquals(warning, message);
+            gotWarning = true;
+        }
+
+        @Override
+        public void info(String message) {}
+    }
 }

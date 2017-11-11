@@ -5,6 +5,7 @@ import android.graphics.ImageFormat;
 import android.media.Image;
 import android.support.test.InstrumentationRegistry;
 import android.support.test.runner.AndroidJUnit4;
+import android.util.Log;
 import android.util.Size;
 
 import net.jodah.concurrentunit.Waiter;
@@ -34,11 +35,11 @@ public class StillCaptureTests {
 
         StillCaptureHandler cs = new StillCaptureHandler(
                 ImageFormat.JPEG, size, new OnImageAvailableListener() {
-                    @Override
-                    public void onImageAvailable(Image image) {
+            @Override
+            public void onImageAvailable(Image image) {
 
-                    }
-                }, camera3.getErrorHandler());
+            }
+        }, camera3.getErrorHandler());
 
         camera3.startCaptureSession(cameraId, null, Arrays.asList(cs));
 
@@ -74,4 +75,50 @@ public class StillCaptureTests {
 
         waiter.await(5, SECONDS);
     }
+
+    @Test
+    public void pauseResume() throws Exception {
+        final Context appContext = InstrumentationRegistry.getTargetContext();
+        final Waiter waiter = new Waiter();
+
+        final Camera3 camera = new Camera3(appContext,
+                new TestUtils.ExpectWarning(
+                        "Starting session from background thread",
+                        waiter));
+        final String cameraId = camera.getAvailableCameras().get(0);
+
+        final Size size = camera.getLargestAvailableSize(cameraId, ImageFormat.JPEG);
+
+        final StillCaptureHandler cs = new StillCaptureHandler(
+                ImageFormat.JPEG, size, new OnImageAvailableListener() {
+                    @Override
+                    public void onImageAvailable(Image image) {
+                        waiter.resume();
+                    }
+                }, camera.getErrorHandler());
+
+        camera.startCaptureSession(cameraId, null, Arrays.asList(cs),
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        Log.d("TEST", "started first session");
+                        camera.pause();
+                        Log.d("TEST", "camera paused");
+
+                        camera.resume(new Runnable() {
+                            @Override
+                            public void run() {
+                                Log.d("TEST", "camera resumed");
+                                camera.captureImage(cs, Camera3.PRECAPTURE_CONFIG_NONE,
+                                        Camera3.CAPTURE_CONFIG_DEFAULT);
+                            }
+                        });
+                    }
+                });
+
+
+        waiter.await();
+    }
+
+    //TODO fail gracefully when requesting capture before camera has opened
 }

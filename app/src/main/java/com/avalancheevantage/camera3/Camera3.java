@@ -232,14 +232,14 @@ public final class Camera3 {
      * @param cameraId             which camera to use (from {@link Camera3#getAvailableCameras()}).
      * @param previewHandler       an object representing the configuration for the camera preview, or
      *                             <code>null</code> to not show a preview (see {@link PreviewHandler}).
-     * @param stillCaptureSessions a list of zero or more {@link StillCaptureHandler} sessions,
+     * @param stillCaptureSessions a list of zero or more {@link StillCaptureHandler}'s,
      *                             or null if no still images will be captured. Usually only one
      *                             is required.
      * @param onSessionStarted     an optional callback that will be called to notify the user when
      *                             the camera has been opened and the capture session has been
      *                             started.
-     * @see Camera3#createPreviewHandler(TextureView, CaptureRequest.Builder, PreviewSizeCallback)
-     * @see Camera3#createStillCaptureHandler(int, Size, OnImageAvailableListener)
+     * @see PreviewHandler
+     * @see StillCaptureHandler
      */
     public void startCaptureSession(@NonNull String cameraId,
                                     @Nullable PreviewHandler previewHandler,
@@ -256,20 +256,6 @@ public final class Camera3 {
                 //TODO it is redundant to close and then re-open some things. room for optimization
                 pause();
             }
-//            if (mSession != null && mSession.getPreview() != null &&
-//                    mSession.getPreview().getParent() != this) {
-//                throw new IllegalArgumentException(
-//                        "previewHandler belongs to a different instance of Camera3");
-//            }
-//            if (stillCaptureSessions != null) {
-//                for (int i = 0; i < stillCaptureSessions.size(); i++) {
-//                    if (stillCaptureSessions.get(i).getParent() != this) {
-//                        throw new IllegalArgumentException(
-//                                "StillCaptureHandler number " + i +
-//                                        " belongs to a different instance of Camera3");
-//                    }
-//                }
-//            }
 
             if (stillCaptureSessions == null) {
                 stillCaptureSessions = new ArrayList<>();
@@ -289,18 +275,30 @@ public final class Camera3 {
     }
 
     /**
-     * Resumes the capture session established by the last call to
-     * {@link Camera3#startCaptureSession(String, PreviewHandler, List)}
+     * @see Camera3#resume(Runnable)
      */
     public void resume() {
+        resume(null);
+    }
+
+    /**
+     * Resumes the capture session established by the last call to
+     * {@link Camera3#startCaptureSession(String, PreviewHandler, List)}
+     *
+     * @param onSessionRestarted an optional callback that will be called to notify the user when
+     *                           the camera has been opened and the capture session has been
+     *                           restarted.
+     */
+    public void resume(@Nullable Runnable onSessionRestarted) {
         if (mStarted) {
             mErrorHandler.warning("calling resume when a session is already started.");
             return;
         }
         if (mSession == null) {
             throw new IllegalStateException(
-                    "No session configured. Call startCaptureSession first");
+                    "No session configured. Call startCaptureSession(...) first");
         }
+        mOnSessionStartedCallback = onSessionRestarted;
         startCaptureSession(mSession);
     }
 
@@ -459,8 +457,7 @@ public final class Camera3 {
                 mErrorHandler.error("Time out waiting to acquire camera lock.", null);
                 return;
             }
-            if (manager == null) {
-                mErrorHandler.error(NULL_MANAGER_MESSAGE, null);
+            if (requireNotNull(manager, NULL_MANAGER_MESSAGE)) {
                 return;
             }
             manager.openCamera(cameraId, mStateCallback, mBackgroundHandler);
@@ -478,6 +475,10 @@ public final class Camera3 {
     }
 
     private void startBackgroundThread() {
+        if (Thread.currentThread() == mBackgroundThread) {
+            mErrorHandler.warning("Starting session from background thread");
+            return;
+        }
         mErrorHandler.info("Starting background threads...");
         mBackgroundThread = new HandlerThread("CameraBackground");
         mBackgroundThread.start();
@@ -485,6 +486,9 @@ public final class Camera3 {
     }
 
     private void stopBackgroundThread() {
+        if (Thread.currentThread() == mBackgroundThread) {
+            return;
+        }
         if (mBackgroundThread != null) {
             mBackgroundThread.quitSafely();
             try {
@@ -586,7 +590,6 @@ public final class Camera3 {
                                         mCaptureCallback, mBackgroundHandler);
                                 if (mOnSessionStartedCallback != null) {
                                     mOnSessionStartedCallback.run();
-                                    mOnSessionStartedCallback = null;
                                 }
                             } catch (CameraAccessException e) {
                                 reportCameraAccessException(e);
@@ -622,7 +625,6 @@ public final class Camera3 {
 
                             if (mOnSessionStartedCallback != null) {
                                 mOnSessionStartedCallback.run();
-                                mOnSessionStartedCallback = null;
                             }
                         }
 
