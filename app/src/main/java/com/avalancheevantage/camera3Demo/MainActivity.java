@@ -129,7 +129,7 @@ public class MainActivity extends AppCompatActivity {
 //                                    e.printStackTrace();
 //                                }
                             }
-                        }, cameraManager.getErrorHandler());
+                        });
         cameraManager.startCaptureSession(cameraId, mShowPreview ? previewHandler : null,
                 Collections.singletonList(captureSession));
         findViewById(R.id.capture).setOnTouchListener(new View.OnTouchListener() {

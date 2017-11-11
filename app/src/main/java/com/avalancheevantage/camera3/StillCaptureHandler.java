@@ -7,6 +7,8 @@ import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.util.Size;
 
+import org.jetbrains.annotations.Contract;
+
 import java.util.List;
 
 /**
@@ -26,8 +28,10 @@ public final class StillCaptureHandler {
     private static final int MAX_IMAGES = 2;
 
     private final int imageFormat;
+    @Nullable
+    private ImageReader.OnImageAvailableListener camera2ImageAvailableListener;
     @NonNull
-    private final ImageReader.OnImageAvailableListener imageAvailableListener;
+    private final OnImageAvailableListener imageAvailableListener;
     @Nullable
     private Size imageSize;
     @Nullable
@@ -42,22 +46,19 @@ public final class StillCaptureHandler {
         return imageSize;
     }
     /**
+     * @param imageFormat The format to capture in (from {@link android.graphics.ImageFormat}).
+     *                    E.g. ImageFormat.JPEG
      * @param imageSize The size of the image to capture. This size should come from
      *                  {@link Camera3#getAvailableSizes(String, int)} or
      *                  {@link Camera3#getLargestAvailableSize(String, int)}
      *                  //TODO test when this is not from the list
-     * @param imageFormat The format to capture in (from {@link android.graphics.ImageFormat}).
-     *                    E.g. ImageFormat.JPEG
      * @param onImageAvailableListener a callback to receive the images from this session once they
-     *                                 have been captured
-     * @param errorHandler an error handler to be notified if something goes wrong when reading
-     *                     the image.
+ *                                 have been captured
      */
     //TODO set errorHandler from camera3
     public StillCaptureHandler(final int imageFormat,
                                @NonNull final Size imageSize,
-                               @NonNull final OnImageAvailableListener onImageAvailableListener,
-                               @NonNull final ErrorHandler errorHandler) {
+                               @NonNull final OnImageAvailableListener onImageAvailableListener) {
         //noinspection ConstantConditions
         if (imageSize == null) {
             throw new IllegalArgumentException("imageSize cannot be null");
@@ -69,25 +70,11 @@ public final class StillCaptureHandler {
 
         this.imageFormat = imageFormat;
         this.imageSize = imageSize;
-
-        this.imageAvailableListener = new ImageReader.OnImageAvailableListener() {
-            @Override
-            public void onImageAvailable(ImageReader reader) {
-                try {
-                    Image image = reader.acquireNextImage();
-                    onImageAvailableListener.onImageAvailable(image);
-                    image.close();
-                } catch (IllegalStateException e) {
-                    errorHandler.error(
-                            "The image queue for this capture session is full. " +
-                                    "More images must be processed before any new ones can " +
-                                    "be captured.", e);
-                }
-            }
-        };
-
+        this.imageAvailableListener = onImageAvailableListener;
     }
 
+
+    @Contract(pure = true)
     @Nullable
     ImageReader getImageReader() {
         return imageReader;
@@ -100,10 +87,25 @@ public final class StillCaptureHandler {
         }
     }
 
-    void openImageReader(@NonNull final Handler backgroundHandler) {
+    void openImageReader(@NonNull final Handler backgroundHandler,
+                         @NonNull final ErrorHandler errorHandler) {
         this.imageReader = ImageReader.newInstance(imageSize.getWidth(), imageSize.getHeight(),
                 imageFormat, MAX_IMAGES);
         this.imageReader.setOnImageAvailableListener(
-                imageAvailableListener, backgroundHandler);
+                new ImageReader.OnImageAvailableListener() {
+                    @Override
+                    public void onImageAvailable(ImageReader reader) {
+                        try {
+                            Image image = reader.acquireNextImage();
+                            imageAvailableListener.onImageAvailable(image);
+                            image.close();
+                        } catch (IllegalStateException e) {
+                            errorHandler.error(
+                                    "The image queue for this capture session is full. " +
+                                            "More images must be processed before any new ones can " +
+                                            "be captured.", e);
+                        }
+                    }
+                }, backgroundHandler);
     }
 }

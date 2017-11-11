@@ -39,7 +39,7 @@ public class StillCaptureTests {
             public void onImageAvailable(Image image) {
 
             }
-        }, camera3.getErrorHandler());
+        });
 
         camera3.startCaptureSession(cameraId, null, Arrays.asList(cs));
 
@@ -61,7 +61,7 @@ public class StillCaptureTests {
                     public void onImageAvailable(Image image) {
                         waiter.resume();
                     }
-                }, camera.getErrorHandler());
+                });
 
         camera.startCaptureSession(cameraId, null, Arrays.asList(cs),
                 new Runnable() {
@@ -95,7 +95,7 @@ public class StillCaptureTests {
                     public void onImageAvailable(Image image) {
                         waiter.resume();
                     }
-                }, camera.getErrorHandler());
+                });
 
         camera.startCaptureSession(cameraId, null, Arrays.asList(cs),
                 new Runnable() {

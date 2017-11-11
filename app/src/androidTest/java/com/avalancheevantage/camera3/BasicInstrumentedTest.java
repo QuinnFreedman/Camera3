@@ -87,7 +87,7 @@ public class BasicInstrumentedTest {
                     public void onImageAvailable(Image image) {
 
                     }
-                }, camera3.getErrorHandler());
+                });
 
         camera3.startCaptureSession(cameraId, null, Arrays.asList(cs),
                 new Runnable() {

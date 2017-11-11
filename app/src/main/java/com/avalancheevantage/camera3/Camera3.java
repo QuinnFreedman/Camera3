@@ -311,7 +311,7 @@ public final class Camera3 {
         this.mStarted = true;
         startBackgroundThread();
         for (StillCaptureHandler imageCaptureSession : session.getStillCaptures()) {
-            imageCaptureSession.openImageReader(mBackgroundHandler);
+            imageCaptureSession.openImageReader(mBackgroundHandler, mErrorHandler);
         }
 
         mErrorHandler.info("starting preview");
