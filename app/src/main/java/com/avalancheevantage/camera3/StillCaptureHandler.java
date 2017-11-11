@@ -16,7 +16,7 @@ import java.util.List;
  * <p>
  * It should be created once and passed to
  * {@link Camera3#startCaptureSession(String, PreviewHandler, List)} when the capture
- * session is started. You only need to create multiple sessions if you want to capture images in
+ * session is started. You only need to create multiple handlers if you want to capture images in
  * multiple formats/sizes. Many capture requests can be made from one session.
  *
  * @author Quinn Freedman
@@ -53,6 +53,7 @@ public final class StillCaptureHandler {
      * @param errorHandler an error handler to be notified if something goes wrong when reading
      *                     the image.
      */
+    //TODO set errorHandler from camera3
     public StillCaptureHandler(final int imageFormat,
                                @NonNull final Size imageSize,
                                @NonNull final OnImageAvailableListener onImageAvailableListener,

@@ -357,7 +357,7 @@ public final class Camera3 {
      * Starts the process of capturing a still image from the camera. Should be called after calling
      * {@link Camera3#startCaptureSession(String, PreviewHandler, List)}
      *
-     * @param session    the {@link StillCaptureHandler} which will be responsible for processing
+     * @param handler    the {@link StillCaptureHandler} which will be responsible for processing
      *                   the image
      * @param precapture the precapture configuration. Use {@link
      *                   Camera3#PRECAPTURE_CONFIG_TRIGGER_AUTO_FOCUS}
@@ -368,27 +368,27 @@ public final class Camera3 {
      *                   {@link Camera3#CAPTURE_CONFIG_DEFAULT} if you don't want to change the default
      *                   configuration at all.
      */
-    public void captureImage(@NonNull StillCaptureHandler session,
+    public void captureImage(@NonNull StillCaptureHandler handler,
                              @Nullable ImageCaptureRequestConfiguration precapture,
                              @NonNull ImageCaptureRequestConfiguration capture) {
         try {
             //TODO make capture nullable to be consistent with precapture
             if (!this.mStarted) {
                 throw new IllegalStateException("trying to call captureImage(...) " +
-                        "but a capture session has not been started yet");
+                        "but a capture handler has not been started yet");
             }
-            Objects.requireNonNull(session, "capture session is null");
-//        if (Objects.requireNonNull(session, "capture session is null")
+            Objects.requireNonNull(handler, "capture handler is null");
+//        if (Objects.requireNonNull(handler, "capture handler is null")
 //                .getParent() != this) {
 //            throw new IllegalArgumentException(
 //                    "This StillCaptureHandler belongs to another Camera3 instance");
 //        }
             if (mSession == null) {
                 throw new IllegalStateException(
-                        "Internal error: Somehow the session is null even though started is true");
+                        "Internal error: Somehow the handler is null even though started is true");
             }
 
-            if (!mSession.getStillCaptures().contains(session)) {
+            if (!mSession.getStillCaptures().contains(handler)) {
                 mErrorHandler.error(
                         "StillCaptureHandler is not configured with the current camera session",
                         null);
@@ -397,8 +397,8 @@ public final class Camera3 {
 
             mErrorHandler.info("Adding capture request to queue...");
 //        mCaptureRequestQueue.add(
-//                new ImageCaptureRequest(session, precapture, capture, mErrorHandler));
-            mCaptureRequest = new ImageCaptureRequest(session, precapture, capture, mErrorHandler);
+//                new ImageCaptureRequest(handler, precapture, capture, mErrorHandler));
+            mCaptureRequest = new ImageCaptureRequest(handler, precapture, capture, mErrorHandler);
 
             if (mState == CameraState.PREVIEW) {
                 mErrorHandler.info(
@@ -417,14 +417,17 @@ public final class Camera3 {
         }
     }
 
+    @Contract(pure = true)
     public ErrorHandler getErrorHandler() {
         return mErrorHandler;
     }
 
+    @Contract(pure = true)
     public boolean captureConfigured() {
         return mSession != null;
     }
 
+    @Contract(pure = true)
     public boolean isStarted() {
         return mStarted;
     }
