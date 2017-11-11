@@ -20,8 +20,8 @@ import android.widget.Toast;
 import com.avalancheevantage.camera3.AutoFitTextureView;
 import com.avalancheevantage.camera3.Camera3;
 import com.avalancheevantage.camera3.OnImageAvailableListener;
-import com.avalancheevantage.camera3.PreviewSession;
-import com.avalancheevantage.camera3.StillImageCaptureSession;
+import com.avalancheevantage.camera3.PreviewHandler;
+import com.avalancheevantage.camera3.StillCaptureHandler;
 
 import java.util.Collections;
 
@@ -93,7 +93,7 @@ public class MainActivity extends AppCompatActivity {
         final AutoFitTextureView previewTexture = findViewById(R.id.preview);
         previewTexture.setFill(AutoFitTextureView.STYLE_FILL);
 
-        PreviewSession previewSession = cameraManager.createPreviewSession(
+        PreviewHandler previewHandler = new PreviewHandler(
                 previewTexture,
                 null,
                 new Camera3.PreviewSizeCallback() {
@@ -110,8 +110,8 @@ public class MainActivity extends AppCompatActivity {
                     }
                 }
         );
-        final StillImageCaptureSession captureSession =
-                cameraManager.createStillImageCaptureSession(ImageFormat.JPEG,
+        final StillCaptureHandler captureSession =
+                new StillCaptureHandler(ImageFormat.JPEG,
                         cameraManager.getLargestAvailableSize(cameraId, ImageFormat.JPEG),
                         new OnImageAvailableListener() {
                             private int imageCount = 0;
@@ -129,8 +129,8 @@ public class MainActivity extends AppCompatActivity {
 //                                    e.printStackTrace();
 //                                }
                             }
-                        });
-        cameraManager.startCaptureSession(cameraId, mShowPreview ? previewSession : null,
+                        }, cameraManager.getErrorHandler());
+        cameraManager.startCaptureSession(cameraId, mShowPreview ? previewHandler : null,
                 Collections.singletonList(captureSession));
         findViewById(R.id.capture).setOnTouchListener(new View.OnTouchListener() {
             @Override

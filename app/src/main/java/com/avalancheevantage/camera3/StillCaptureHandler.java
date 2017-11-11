@@ -10,20 +10,19 @@ import android.util.Size;
 import java.util.List;
 
 /**
- * This class represents the configuration for a preview session. It is responsible for processing
- * the image data from the camera and calling the user's callback whenever an image is available.
- * <p>
- * This class should be instantiated via {@link Camera3#createStillImageCaptureSession(int, Size, OnImageAvailableListener)}
+ * This class represents the configuration for a still image capture session. It is responsible for
+ * processing the image data from the camera and calling the user's callback whenever an image is
+ * available.
  * <p>
  * It should be created once and passed to
- * {@link Camera3#startCaptureSession(String, PreviewSession, List)} when the capture
+ * {@link Camera3#startCaptureSession(String, PreviewHandler, List)} when the capture
  * session is started. You only need to create multiple sessions if you want to capture images in
  * multiple formats/sizes. Many capture requests can be made from one session.
  *
  * @author Quinn Freedman
  */
 
-public class StillImageCaptureSession {
+public final class StillCaptureHandler {
     private static final int MAX_IMAGES = 2;
 
     private final int imageFormat;
@@ -54,10 +53,10 @@ public class StillImageCaptureSession {
      * @param errorHandler an error handler to be notified if something goes wrong when reading
      *                     the image.
      */
-    public StillImageCaptureSession(final int imageFormat,
-                             @NonNull final Size imageSize,
-                             @NonNull final OnImageAvailableListener onImageAvailableListener,
-                             @NonNull final ErrorHandler errorHandler) {
+    public StillCaptureHandler(final int imageFormat,
+                               @NonNull final Size imageSize,
+                               @NonNull final OnImageAvailableListener onImageAvailableListener,
+                               @NonNull final ErrorHandler errorHandler) {
         //noinspection ConstantConditions
         if (imageSize == null) {
             throw new IllegalArgumentException("imageSize cannot be null");

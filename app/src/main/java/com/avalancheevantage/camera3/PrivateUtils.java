@@ -96,20 +96,20 @@ class PrivateUtils {
 
     /**
      * Configures the necessary {@link android.graphics.Matrix} transformation for the
-     * TextureView for a PreviewSession
-     *  @param previewSession     The PreviewSession to configure
+     * TextureView for a PreviewHandler
+     *  @param previewHandler     The PreviewHandler to configure
      * @param previewTextureSize the size of the texture to transform the preview to fit.
      * @param context
      */
     @SuppressWarnings("SuspiciousNameCombination")
-    static void configureTransform(@NonNull PreviewSession previewSession,
+    static void configureTransform(@NonNull PreviewHandler previewHandler,
                                    @NonNull Size previewTextureSize,
                                    @NonNull Context context,
                                    @NonNull ErrorHandler errorHandler) {
         errorHandler.info("Configuring preview transform matrix...");
         //noinspection ConstantConditions
-        if (requireNotNull(previewSession, "preview session is null when trying to configure preview transform", errorHandler) ||
-            requireNotNull(previewSession.getTextureView(), "textureView is null when trying to configure preview transform", errorHandler) ||
+        if (requireNotNull(previewHandler, "preview session is null when trying to configure preview transform", errorHandler) ||
+            requireNotNull(previewHandler.getTextureView(), "textureView is null when trying to configure preview transform", errorHandler) ||
             requireNotNull(context, "context is null when trying to configure preview transform", errorHandler)
         ) {
             return;
@@ -117,8 +117,8 @@ class PrivateUtils {
         int viewWidth = previewTextureSize.getWidth();
         int viewHeight = previewTextureSize.getHeight();
 
-        int previewWidth = previewSession.getPreviewSize().getWidth();
-        int previewHeight = previewSession.getPreviewSize().getHeight();
+        int previewWidth = previewHandler.getPreviewSize().getWidth();
+        int previewHeight = previewHandler.getPreviewSize().getHeight();
 
         int rotation = getScreenRotation(context, errorHandler);
         Matrix matrix = new Matrix();
@@ -137,20 +137,20 @@ class PrivateUtils {
         } else if (Surface.ROTATION_180 == rotation) {
             matrix.postRotate(180, centerX, centerY);
         }
-        previewSession.getTextureView().setTransform(matrix);
+        previewHandler.getTextureView().setTransform(matrix);
     }
 
-    //TODO: refactor to take a PreviewSession, add textureSize as a field of preview session
+    //TODO: refactor to take a PreviewHandler, add textureSize as a field of preview session
     @SuppressWarnings("SuspiciousNameCombination")
     static void setUpPreviewOutput(@NonNull String cameraId,
                                    @NonNull Size previewTextureSize,
                                    int sensorOrientation,
-                                   @NonNull PreviewSession previewSession,
+                                   @NonNull PreviewHandler previewHandler,
                                    @NonNull Context context,
                                    @NonNull ErrorHandler errorHandler) {
         //noinspection ConstantConditions
         if (
-            requireNotNull(previewSession, "Cannot configure null preview session", errorHandler) ||
+            requireNotNull(previewHandler, "Cannot configure null preview session", errorHandler) ||
             requireNotNull(previewTextureSize, "previewTextureSize is null", errorHandler) ||
             requireNotNull(context, "context is null in setUpPreviewOutput()", errorHandler) ||
             requireNotNull(cameraId, "cameraId is null in setUpPreviewOutput()", errorHandler)
@@ -228,10 +228,10 @@ class PrivateUtils {
         Size optimalSize = chooseOptimalSize(previewSizes,
                 rotatedPreviewWidth, rotatedPreviewHeight, maxPreviewWidth,
                 maxPreviewHeight, /*aspect ratio*/ largestPreviewSize, errorHandler);
-        previewSession.setPreviewSize(optimalSize);
+        previewHandler.setPreviewSize(optimalSize);
 
         //notify the user what preview size we chose
-        Camera3.PreviewSizeCallback sizeCallback = previewSession.getPreviewSizeSelectedCallback();
+        Camera3.PreviewSizeCallback sizeCallback = previewHandler.getPreviewSizeSelectedCallback();
         if (sizeCallback != null) {
             int orientation = context.getResources().getConfiguration().orientation;
             sizeCallback.previewSizeSelected(orientation, optimalSize);

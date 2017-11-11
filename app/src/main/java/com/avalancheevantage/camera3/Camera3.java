@@ -68,7 +68,7 @@ import static com.avalancheevantage.camera3.PrivateUtils.setUpPreviewOutput;
  *
  * @author Quinn Freedman
  */
-public class Camera3 {
+public final class Camera3 {
     private static final String TAG = "Camera3";
 
     /**
@@ -129,8 +129,8 @@ public class Camera3 {
     private CaptureRequest.Builder mPreviewRequestBuilder;
 
     //    private String mCameraId;
-//    @Nullable private PreviewSession mPreviewSession;
-//    @NonNull private List<StillImageCaptureSession> mStillCaptureSessions = new ArrayList<>();
+//    @Nullable private PreviewHandler mPreviewSession;
+//    @NonNull private List<StillCaptureHandler> mStillCaptureSessions = new ArrayList<>();
     @Nullable
     private Session mSession;
     @NonNull
@@ -218,32 +218,32 @@ public class Camera3 {
     }
 
     /**
-     * @see Camera3#startCaptureSession(String, PreviewSession, List, Runnable)
+     * @see Camera3#startCaptureSession(String, PreviewHandler, List, Runnable)
      */
     public void startCaptureSession(@NonNull String cameraId,
-                                    @Nullable PreviewSession previewSession,
-                                    @Nullable List<StillImageCaptureSession> stillCaptureSessions) {
-        startCaptureSession(cameraId, previewSession, stillCaptureSessions, null);
+                                    @Nullable PreviewHandler previewHandler,
+                                    @Nullable List<StillCaptureHandler> stillCaptureSessions) {
+        startCaptureSession(cameraId, previewHandler, stillCaptureSessions, null);
     }
 
     /**
      * Starts a new session. Only one session can be open at a time.
      *
      * @param cameraId             which camera to use (from {@link Camera3#getAvailableCameras()}).
-     * @param previewSession       an object representing the configuration for the camera preview, or
-     *                             <code>null</code> to not show a preview (see {@link PreviewSession}).
-     * @param stillCaptureSessions a list of zero or more {@link StillImageCaptureSession} sessions,
+     * @param previewHandler       an object representing the configuration for the camera preview, or
+     *                             <code>null</code> to not show a preview (see {@link PreviewHandler}).
+     * @param stillCaptureSessions a list of zero or more {@link StillCaptureHandler} sessions,
      *                             or null if no still images will be captured. Usually only one
      *                             is required.
      * @param onSessionStarted     an optional callback that will be called to notify the user when
      *                             the camera has been opened and the capture session has been
      *                             started.
-     * @see Camera3#createPreviewSession(TextureView, CaptureRequest.Builder, PreviewSizeCallback)
-     * @see Camera3#createStillImageCaptureSession(int, Size, OnImageAvailableListener)
+     * @see Camera3#createPreviewHandler(TextureView, CaptureRequest.Builder, PreviewSizeCallback)
+     * @see Camera3#createStillCaptureHandler(int, Size, OnImageAvailableListener)
      */
     public void startCaptureSession(@NonNull String cameraId,
-                                    @Nullable PreviewSession previewSession,
-                                    @Nullable List<StillImageCaptureSession> stillCaptureSessions,
+                                    @Nullable PreviewHandler previewHandler,
+                                    @Nullable List<StillCaptureHandler> stillCaptureSessions,
                                     @Nullable Runnable onSessionStarted) {
         try {
             //noinspection ConstantConditions
@@ -256,16 +256,16 @@ public class Camera3 {
                 //TODO it is redundant to close and then re-open some things. room for optimization
                 pause();
             }
-            if (mSession != null && mSession.getPreview() != null &&
-                    mSession.getPreview().getParent() != this) {
-                throw new IllegalArgumentException(
-                        "previewSession belongs to a different instance of Camera3");
-            }
+//            if (mSession != null && mSession.getPreview() != null &&
+//                    mSession.getPreview().getParent() != this) {
+//                throw new IllegalArgumentException(
+//                        "previewHandler belongs to a different instance of Camera3");
+//            }
 //            if (stillCaptureSessions != null) {
 //                for (int i = 0; i < stillCaptureSessions.size(); i++) {
 //                    if (stillCaptureSessions.get(i).getParent() != this) {
 //                        throw new IllegalArgumentException(
-//                                "StillImageCaptureSession number " + i +
+//                                "StillCaptureHandler number " + i +
 //                                        " belongs to a different instance of Camera3");
 //                    }
 //                }
@@ -275,12 +275,12 @@ public class Camera3 {
                 stillCaptureSessions = new ArrayList<>();
             }
 
-            if (previewSession == null && stillCaptureSessions.isEmpty()) {
+            if (previewHandler == null && stillCaptureSessions.isEmpty()) {
                 throw new IllegalArgumentException(
-                        "previewSession is null and stillCaptureSessions is null or empty; " +
+                        "previewHandler is null and stillCaptureSessions is null or empty; " +
                                 "no targets for capture session");
             }
-            mSession = new Session(cameraId, previewSession, stillCaptureSessions);
+            mSession = new Session(cameraId, previewHandler, stillCaptureSessions);
             mOnSessionStartedCallback = onSessionStarted;
             startCaptureSession(mSession);
         } catch (Exception e) {
@@ -290,7 +290,7 @@ public class Camera3 {
 
     /**
      * Resumes the capture session established by the last call to
-     * {@link Camera3#startCaptureSession(String, PreviewSession, List)}
+     * {@link Camera3#startCaptureSession(String, PreviewHandler, List)}
      */
     public void resume() {
         if (mStarted) {
@@ -306,13 +306,13 @@ public class Camera3 {
 
     /**
      * Does the actual work of starting the camera session. Called by both
-     * {@link Camera3#startCaptureSession(String, PreviewSession, List)} and
+     * {@link Camera3#startCaptureSession(String, PreviewHandler, List)} and
      * {@link Camera3#resume()}
      */
     private void startCaptureSession(@NonNull Session session) {
         this.mStarted = true;
         startBackgroundThread();
-        for (StillImageCaptureSession imageCaptureSession : session.getStillCaptures()) {
+        for (StillCaptureHandler imageCaptureSession : session.getStillCaptures()) {
             imageCaptureSession.openImageReader(mBackgroundHandler);
         }
 
@@ -357,9 +357,9 @@ public class Camera3 {
 
     /**
      * Starts the process of capturing a still image from the camera. Should be called after calling
-     * {@link Camera3#startCaptureSession(String, PreviewSession, List)}
+     * {@link Camera3#startCaptureSession(String, PreviewHandler, List)}
      *
-     * @param session    the {@link StillImageCaptureSession} which will be responsible for processing
+     * @param session    the {@link StillCaptureHandler} which will be responsible for processing
      *                   the image
      * @param precapture the precapture configuration. Use {@link
      *                   Camera3#PRECAPTURE_CONFIG_TRIGGER_AUTO_FOCUS}
@@ -370,7 +370,7 @@ public class Camera3 {
      *                   {@link Camera3#CAPTURE_CONFIG_DEFAULT} if you don't want to change the default
      *                   configuration at all.
      */
-    public void captureImage(@NonNull StillImageCaptureSession session,
+    public void captureImage(@NonNull StillCaptureHandler session,
                              @Nullable ImageCaptureRequestConfiguration precapture,
                              @NonNull ImageCaptureRequestConfiguration capture) {
         try {
@@ -383,7 +383,7 @@ public class Camera3 {
 //        if (Objects.requireNonNull(session, "capture session is null")
 //                .getParent() != this) {
 //            throw new IllegalArgumentException(
-//                    "This StillImageCaptureSession belongs to another Camera3 instance");
+//                    "This StillCaptureHandler belongs to another Camera3 instance");
 //        }
             if (mSession == null) {
                 throw new IllegalStateException(
@@ -392,7 +392,7 @@ public class Camera3 {
 
             if (!mSession.getStillCaptures().contains(session)) {
                 mErrorHandler.error(
-                        "StillImageCaptureSession is not configured with the current camera session",
+                        "StillCaptureHandler is not configured with the current camera session",
                         null);
                 return;
             }
@@ -512,7 +512,7 @@ public class Camera3 {
                 mErrorHandler.warning("Internal Error: session null when closing camera");
                 return;
             }
-            for (StillImageCaptureSession imageCaptureSession : mSession.getStillCaptures()) {
+            for (StillCaptureHandler imageCaptureSession : mSession.getStillCaptures()) {
                 imageCaptureSession.closeImageReader();
 
             }
@@ -526,18 +526,18 @@ public class Camera3 {
     /**
      * Creates a new {@link CameraCaptureSession} for camera preview.
      */
-    private void createPreviewCameraCaptureSession(@NonNull final PreviewSession previewSession) {
+    private void createPreviewCameraCaptureSession(@NonNull final PreviewHandler previewHandler) {
 
-        if (requireNotNull(previewSession, "Internal error: previewSession is null")) {
+        if (requireNotNull(previewHandler, "Internal error: previewHandler is null")) {
             return;
         }
-        Size previewSize = previewSession.getPreviewSize();
-        if (requireNotNull(previewSize, "Internal error: previewSession.previewSize is null")) {
+        Size previewSize = previewHandler.getPreviewSize();
+        if (requireNotNull(previewSize, "Internal error: previewHandler.previewSize is null")) {
             return;
         }
 
-        SurfaceTexture texture = previewSession.getTextureView().getSurfaceTexture();
-        if (requireNotNull(texture, "previewSession.getTextureView().getSurfaceTexture() is null")) {
+        SurfaceTexture texture = previewHandler.getTextureView().getSurfaceTexture();
+        if (requireNotNull(texture, "previewHandler.getTextureView().getSurfaceTexture() is null")) {
             return;
         }
 
@@ -549,9 +549,9 @@ public class Camera3 {
 
         try {
             // We set up a CaptureRequest.Builder with the output Surface.
-            mPreviewRequestBuilder = previewSession.getPreviewRequest() == null ?
+            mPreviewRequestBuilder = previewHandler.getPreviewRequest() == null ?
                     mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW) :
-                    previewSession.getPreviewRequest();
+                    previewHandler.getPreviewRequest();
             mPreviewRequestBuilder.addTarget(surface);
 
 
@@ -573,8 +573,8 @@ public class Camera3 {
                             // When the session is ready, we start displaying the preview.
                             mCaptureSession = cameraCaptureSession;
                             try {
-                                //previewSession.getPreviewRequest() will never be null at this point
-                                if (!previewSession.usesCustomRequest()) {
+                                //previewHandler.getPreviewRequest() will never be null at this point
+                                if (!previewHandler.usesCustomRequest()) {
                                     // Auto focus should be continuous for camera preview.
                                     mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_MODE,
                                             CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
@@ -645,13 +645,13 @@ public class Camera3 {
                 "Internal error: session is null when calling getCaptureTargetSurfaces()")) {
             return new ArrayList<>();
         }
-        for (StillImageCaptureSession captureSession : mSession.getStillCaptures()) {
+        for (StillCaptureHandler captureSession : mSession.getStillCaptures()) {
             if (captureSession == null) {
-                mErrorHandler.error("a StillImageCaptureSession is null", null);
+                mErrorHandler.error("a StillCaptureHandler is null", null);
                 continue;
             }
             if (captureSession.getImageReader() == null) {
-                mErrorHandler.error("a StillImageCaptureSession has a null ImageReader", null);
+                mErrorHandler.error("a StillCaptureHandler has a null ImageReader", null);
                 continue;
             }
             targetSurfaces.add(captureSession.getImageReader().getSurface());
@@ -934,7 +934,7 @@ public class Camera3 {
             mErrorHandler.error("Internal Error: capture queue was empty", null);
             return;
         }
-        StillImageCaptureSession session = request.getSession();
+        StillCaptureHandler session = request.getSession();
         ImageReader imageReader = session.getImageReader();
         if (imageReader == null) {
             mErrorHandler.error(
@@ -1070,33 +1070,6 @@ public class Camera3 {
         new ImageSaver(image, file).run();
     }
 
-    public PreviewSession createPreviewSession(@NonNull TextureView previewTextureView,
-                                               @Nullable CaptureRequest.Builder previewRequest,
-                                               @Nullable PreviewSizeCallback previewSizeSelected) {
-        return new PreviewSession(
-                previewTextureView,
-                previewRequest,
-                previewSizeSelected,
-                this);
-    }
-
-    /**
-     * A utility method to make a new {@link StillImageCaptureSession} with this Camera3's
-     * errorHandler
-     *
-     * @see StillImageCaptureSession
-     */
-    public StillImageCaptureSession
-    createStillImageCaptureSession(int imageFormat,
-                                   @NonNull Size imageSize,
-                                   @NonNull OnImageAvailableListener onImageAvailableListener) {
-
-        return new StillImageCaptureSession(
-                imageFormat, imageSize,
-                onImageAvailableListener,
-                mErrorHandler);
-    }
-
     public boolean hasCameraPermission() {
         return ContextCompat.checkSelfPermission(mContext, Manifest.permission.CAMERA)
                 == PackageManager.PERMISSION_GRANTED;
@@ -1114,9 +1087,9 @@ public class Camera3 {
         @NonNull
         private final String cameraId;
         @Nullable
-        private final PreviewSession previewSession;
+        private final PreviewHandler previewHandler;
         @NonNull
-        private final List<StillImageCaptureSession> stillImageCaptureSessions;
+        private final List<StillCaptureHandler> stillCaptureHandlers;
 
         @Contract(pure = true)
         @NonNull
@@ -1126,22 +1099,22 @@ public class Camera3 {
 
         @Contract(pure = true)
         @Nullable
-        PreviewSession getPreview() {
-            return previewSession;
+        PreviewHandler getPreview() {
+            return previewHandler;
         }
 
         @Contract(pure = true)
         @NonNull
-        List<StillImageCaptureSession> getStillCaptures() {
-            return stillImageCaptureSessions;
+        List<StillCaptureHandler> getStillCaptures() {
+            return stillCaptureHandlers;
         }
 
         Session(@NonNull String cameraId,
-                @Nullable PreviewSession previewSession,
-                @NonNull List<StillImageCaptureSession> stillImageCaptureSessions) {
+                @Nullable PreviewHandler previewHandler,
+                @NonNull List<StillCaptureHandler> stillCaptureHandlers) {
             this.cameraId = cameraId;
-            this.previewSession = previewSession;
-            this.stillImageCaptureSessions = stillImageCaptureSessions;
+            this.previewHandler = previewHandler;
+            this.stillCaptureHandlers = stillCaptureHandlers;
         }
     }
 }

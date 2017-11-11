@@ -12,7 +12,7 @@ import android.support.annotation.Nullable;
 
 class ImageCaptureRequest {
     @NonNull
-    private final StillImageCaptureSession session;
+    private final StillCaptureHandler session;
     @Nullable
     private final ImageCaptureRequestConfiguration precapture;
     @NonNull
@@ -20,7 +20,7 @@ class ImageCaptureRequest {
     @NonNull
     private ErrorHandler errorHandler;
 
-    ImageCaptureRequest(@NonNull StillImageCaptureSession session,
+    ImageCaptureRequest(@NonNull StillCaptureHandler session,
                         @Nullable ImageCaptureRequestConfiguration precapture,
                         @NonNull ImageCaptureRequestConfiguration capture,
                         @NonNull ErrorHandler errorHandler) {
@@ -32,7 +32,7 @@ class ImageCaptureRequest {
     }
 
     @NonNull
-    StillImageCaptureSession getSession() {
+    StillCaptureHandler getSession() {
         return session;
     }
 

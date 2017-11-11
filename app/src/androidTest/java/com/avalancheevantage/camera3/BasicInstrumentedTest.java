@@ -80,14 +80,14 @@ public class BasicInstrumentedTest {
         String cameraId = camera3.getAvailableCameras().get(0);
 
         final Size size = camera3.getLargestAvailableSize(cameraId, ImageFormat.JPEG);
-        final StillImageCaptureSession cs = camera3.createStillImageCaptureSession(
+        final StillCaptureHandler cs = new StillCaptureHandler(
                 ImageFormat.JPEG, size,
                 new OnImageAvailableListener() {
                     @Override
                     public void onImageAvailable(Image image) {
 
                     }
-                });
+                }, camera3.getErrorHandler());
 
         camera3.startCaptureSession(cameraId, null, Arrays.asList(cs),
                 new Runnable() {
