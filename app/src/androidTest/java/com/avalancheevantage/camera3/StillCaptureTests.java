@@ -5,15 +5,16 @@ import android.graphics.ImageFormat;
 import android.media.Image;
 import android.support.test.InstrumentationRegistry;
 import android.support.test.runner.AndroidJUnit4;
-import android.util.Log;
 import android.util.Size;
 
 import net.jodah.concurrentunit.Waiter;
 
+import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.util.Arrays;
+import java.util.Collections;
 
 import static com.avalancheevantage.camera3.TestUtils.testErrorHandler;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -41,7 +42,7 @@ public class StillCaptureTests {
             }
         });
 
-        camera3.startCaptureSession(cameraId, null, Arrays.asList(cs));
+        camera3.startCaptureSession(cameraId, null, Collections.singletonList(cs));
 
     }
 
@@ -57,11 +58,11 @@ public class StillCaptureTests {
 
         final StillCaptureHandler cs = new StillCaptureHandler(
                 ImageFormat.JPEG, size, new OnImageAvailableListener() {
-                    @Override
-                    public void onImageAvailable(Image image) {
-                        waiter.resume();
-                    }
-                });
+            @Override
+            public void onImageAvailable(Image image) {
+                waiter.resume();
+            }
+        });
 
         camera.startCaptureSession(cameraId, null, Arrays.asList(cs),
                 new Runnable() {
@@ -81,34 +82,31 @@ public class StillCaptureTests {
         final Context appContext = InstrumentationRegistry.getTargetContext();
         final Waiter waiter = new Waiter();
 
-        final Camera3 camera = new Camera3(appContext,
-                new TestUtils.ExpectWarning(
-                        "Starting session from background thread",
-                        waiter));
+        final TestUtils.ExpectWarning errorHandler = new TestUtils.ExpectWarning(
+                "Starting session from background thread",
+                waiter);
+
+        final Camera3 camera = new Camera3(appContext, errorHandler);
         final String cameraId = camera.getAvailableCameras().get(0);
 
         final Size size = camera.getLargestAvailableSize(cameraId, ImageFormat.JPEG);
 
         final StillCaptureHandler cs = new StillCaptureHandler(
                 ImageFormat.JPEG, size, new OnImageAvailableListener() {
-                    @Override
-                    public void onImageAvailable(Image image) {
-                        waiter.resume();
-                    }
-                });
+            @Override
+            public void onImageAvailable(Image image) {
+                waiter.resume();
+            }
+        });
 
-        camera.startCaptureSession(cameraId, null, Arrays.asList(cs),
+        camera.startCaptureSession(cameraId, null, Collections.singletonList(cs),
                 new Runnable() {
                     @Override
                     public void run() {
-                        Log.d("TEST", "started first session");
                         camera.pause();
-                        Log.d("TEST", "camera paused");
-
                         camera.resume(new Runnable() {
                             @Override
                             public void run() {
-                                Log.d("TEST", "camera resumed");
                                 camera.captureImage(cs, Camera3.PRECAPTURE_CONFIG_NONE,
                                         Camera3.CAPTURE_CONFIG_DEFAULT);
                             }
@@ -117,8 +115,79 @@ public class StillCaptureTests {
                 });
 
 
-        waiter.await();
+        waiter.await(5, SECONDS);
+        Assert.assertTrue(errorHandler.gotWarning());
     }
 
-    //TODO fail gracefully when requesting capture before camera has opened
+    @Test
+    public void pauseRestart() throws Exception {
+        final Context appContext = InstrumentationRegistry.getTargetContext();
+        final Waiter waiter = new Waiter();
+
+        final TestUtils.ExpectWarning errorHandler = new TestUtils.ExpectWarning(
+                "Starting session from background thread",
+                waiter);
+
+        final Camera3 camera = new Camera3(appContext, errorHandler);
+        final String cameraId = camera.getAvailableCameras().get(0);
+
+        final Size size = camera.getLargestAvailableSize(cameraId, ImageFormat.JPEG);
+
+        final StillCaptureHandler cs = new StillCaptureHandler(
+                ImageFormat.JPEG, size, new OnImageAvailableListener() {
+            @Override
+            public void onImageAvailable(Image image) {
+                waiter.resume();
+            }
+        });
+
+        camera.startCaptureSession(cameraId, null, Arrays.asList(cs),
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        camera.pause();
+                        camera.startCaptureSession(cameraId, null,
+                                Collections.singletonList(cs),
+                                new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        camera.captureImage(cs, Camera3.PRECAPTURE_CONFIG_NONE,
+                                                Camera3.CAPTURE_CONFIG_DEFAULT);
+                                    }
+                                });
+                    }
+                });
+
+
+        waiter.await(5, SECONDS);
+        Assert.assertTrue(errorHandler.gotWarning());
+    }
+
+    @Test
+    public void requestCaptureBeforeCameraOpens() throws Exception {
+        final Context appContext = InstrumentationRegistry.getTargetContext();
+        final Waiter waiter = new Waiter();
+
+        final ErrorHandler errorHandler = new TestUtils.ExpectWarning(
+                "Trying to capture an image when state is WAITING_CAMERA_OPEN",
+                waiter, true);
+
+        final Camera3 camera = new Camera3(appContext, errorHandler);
+        final String cameraId = camera.getAvailableCameras().get(0);
+
+        final Size size = camera.getLargestAvailableSize(cameraId, ImageFormat.JPEG);
+
+        final StillCaptureHandler cs = new StillCaptureHandler(
+                ImageFormat.JPEG, size, new OnImageAvailableListener() {
+                    @Override
+                    public void onImageAvailable(Image image) {}
+                });
+
+        camera.startCaptureSession(cameraId, null, Collections.singletonList(cs));
+
+        camera.captureImage(cs, Camera3.PRECAPTURE_CONFIG_NONE,
+                Camera3.CAPTURE_CONFIG_DEFAULT);
+
+        waiter.await(5, SECONDS);
+    }
 }

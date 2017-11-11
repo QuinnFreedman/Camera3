@@ -85,6 +85,7 @@ public final class Camera3 {
 
 
     private enum CameraState {
+        WAITING_CAMERA_OPEN,
         //Showing camera preview
         PREVIEW,
         //Waiting for the focus to be locked.
@@ -100,7 +101,7 @@ public final class Camera3 {
      *
      * @see #mCaptureCallback
      */
-    private CameraState mState = CameraState.PREVIEW;
+    private CameraState mState = CameraState.WAITING_CAMERA_OPEN;
     /**
      * A {@link Semaphore} to prevent the app from exiting before closing the camera.
      */
@@ -378,11 +379,7 @@ public final class Camera3 {
                         "but a capture handler has not been started yet");
             }
             Objects.requireNonNull(handler, "capture handler is null");
-//        if (Objects.requireNonNull(handler, "capture handler is null")
-//                .getParent() != this) {
-//            throw new IllegalArgumentException(
-//                    "This StillCaptureHandler belongs to another Camera3 instance");
-//        }
+
             if (mSession == null) {
                 throw new IllegalStateException(
                         "Internal error: Somehow the handler is null even though started is true");
@@ -409,7 +406,7 @@ public final class Camera3 {
                     lockFocus();
                 }
             } else {
-                mErrorHandler.warning("trying to capture an image when state is " + mState.name());
+                mErrorHandler.warning("Trying to capture an image when state is " + mState.name());
             }
 
         } catch (Exception e) {
@@ -505,6 +502,7 @@ public final class Camera3 {
     }
 
     private void closeCamera() {
+        mState = CameraState.WAITING_CAMERA_OPEN;
         try {
             mCameraOpenCloseLock.acquire();
             if (mCaptureSession != null) {
@@ -591,6 +589,7 @@ public final class Camera3 {
                                 mPreviewRequest = mPreviewRequestBuilder.build();
                                 mCaptureSession.setRepeatingRequest(mPreviewRequest,
                                         mCaptureCallback, mBackgroundHandler);
+                                mState = CameraState.PREVIEW;
                                 if (mOnSessionStartedCallback != null) {
                                     mOnSessionStartedCallback.run();
                                 }
@@ -626,6 +625,7 @@ public final class Camera3 {
 
                             mCaptureSession = cameraCaptureSession;
 
+                            mState = CameraState.PREVIEW;
                             if (mOnSessionStartedCallback != null) {
                                 mOnSessionStartedCallback.run();
                             }

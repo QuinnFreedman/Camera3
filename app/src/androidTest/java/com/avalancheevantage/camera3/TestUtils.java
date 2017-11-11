@@ -77,10 +77,18 @@ public class TestUtils {
         private final String warning;
         @NonNull
         private final Waiter waiter;
+        private final boolean resumeWaiter;
 
-        ExpectWarning(@NonNull final String warning, @NonNull final Waiter waiter) {
+        ExpectWarning(@NonNull final String warning,
+                      @NonNull final Waiter waiter) {
+            this(warning, waiter, false);
+        }
+        ExpectWarning(@NonNull final String warning,
+                      @NonNull final Waiter waiter,
+                      boolean resumeWaiter) {
             this.warning = warning;
             this.waiter = waiter;
+            this.resumeWaiter = resumeWaiter;
         }
         private boolean gotWarning = false;
         public boolean gotWarning() {
@@ -95,6 +103,9 @@ public class TestUtils {
         public void warning(String message) {
             waiter.assertEquals(warning, message);
             gotWarning = true;
+            if (resumeWaiter) {
+                waiter.resume();
+            }
         }
 
         @Override

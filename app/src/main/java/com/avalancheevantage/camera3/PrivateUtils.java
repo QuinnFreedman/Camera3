@@ -63,7 +63,7 @@ class PrivateUtils {
     }
 
     @NonNull
-    static Point getScreenSize(@NonNull Context context,
+    private static Point getScreenSize(@NonNull Context context,
                                @NonNull ErrorHandler errorHandler) {
         WindowManager windowManager =
                 (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);
@@ -97,9 +97,10 @@ class PrivateUtils {
     /**
      * Configures the necessary {@link android.graphics.Matrix} transformation for the
      * TextureView for a PreviewHandler
-     *  @param previewHandler     The PreviewHandler to configure
-     * @param previewTextureSize the size of the texture to transform the preview to fit.
-     * @param context
+     * @param previewHandler     The PreviewHandler to configure
+     * @param previewTextureSize The size of the texture to transform the preview to fit.
+     * @param context            The application context
+     * @param errorHandler       Error handler
      */
     @SuppressWarnings("SuspiciousNameCombination")
     static void configureTransform(@NonNull PreviewHandler previewHandler,
