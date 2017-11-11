@@ -1081,23 +1081,20 @@ public class Camera3 {
     }
 
     /**
-     * @param imageSize   The size of the image to capture //TODO how to get this? when is it checked?
-     * @param imageFormat The format to capture in (from {@link android.graphics.ImageFormat}). E.g. ImageFormat.JPEG
+     * A utility method to make a new {@link StillImageCaptureSession} with this Camera3's
+     * errorHandler
+     *
+     * @see StillImageCaptureSession
      */
     public StillImageCaptureSession
     createStillImageCaptureSession(int imageFormat,
                                    @NonNull Size imageSize,
                                    @NonNull OnImageAvailableListener onImageAvailableListener) {
-        if (imageSize == null) {
-            throw new IllegalArgumentException("imageSize cannot be null");
-        }
-        if (onImageAvailableListener == null) {
-            throw new IllegalArgumentException("onImageAvailableListener cannot be null");
-        }
+
         return new StillImageCaptureSession(
                 imageFormat, imageSize,
                 onImageAvailableListener,
-                this);
+                mErrorHandler);
     }
 
     public boolean hasCameraPermission() {

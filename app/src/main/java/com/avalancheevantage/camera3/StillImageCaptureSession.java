@@ -28,7 +28,6 @@ public class StillImageCaptureSession {
 
     private final int imageFormat;
     @NonNull
-    private final Camera3 parent;
     private final ImageReader.OnImageAvailableListener imageAvailableListener;
     @Nullable
     private Size imageSize;
@@ -43,12 +42,31 @@ public class StillImageCaptureSession {
     public Size getImageSize() {
         return imageSize;
     }
-
-    StillImageCaptureSession(final int imageFormat,
+    /**
+     * @param imageSize The size of the image to capture. This size should come from
+     *                  {@link Camera3#getAvailableSizes(String, int)} or
+     *                  {@link Camera3#getLargestAvailableSize(String, int)}
+     *                  //TODO test when this is not from the list
+     * @param imageFormat The format to capture in (from {@link android.graphics.ImageFormat}).
+     *                    E.g. ImageFormat.JPEG
+     * @param onImageAvailableListener a callback to receive the images from this session once they
+     *                                 have been captured
+     * @param errorHandler an error handler to be notified if something goes wrong when reading
+     *                     the image.
+     */
+    public StillImageCaptureSession(final int imageFormat,
                              @NonNull final Size imageSize,
                              @NonNull final OnImageAvailableListener onImageAvailableListener,
-                             @NonNull final Camera3 parent) {
-        this.parent = parent;
+                             @NonNull final ErrorHandler errorHandler) {
+        //noinspection ConstantConditions
+        if (imageSize == null) {
+            throw new IllegalArgumentException("imageSize cannot be null");
+        }
+        //noinspection ConstantConditions
+        if (onImageAvailableListener == null) {
+            throw new IllegalArgumentException("onImageAvailableListener cannot be null");
+        }
+
         this.imageFormat = imageFormat;
         this.imageSize = imageSize;
 
@@ -60,7 +78,7 @@ public class StillImageCaptureSession {
                     onImageAvailableListener.onImageAvailable(image);
                     image.close();
                 } catch (IllegalStateException e) {
-                    parent.getErrorHandler().error(
+                    errorHandler.error(
                             "The image queue for this capture session is full. " +
                                     "More images must be processed before any new ones can " +
                                     "be captured.", e);
@@ -87,10 +105,5 @@ public class StillImageCaptureSession {
                 imageFormat, MAX_IMAGES);
         this.imageReader.setOnImageAvailableListener(
                 imageAvailableListener, backgroundHandler);
-    }
-
-    @NonNull
-    public Camera3 getParent() {
-        return parent;
     }
 }

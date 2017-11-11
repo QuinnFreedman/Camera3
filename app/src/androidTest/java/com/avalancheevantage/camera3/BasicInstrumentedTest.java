@@ -3,29 +3,22 @@ package com.avalancheevantage.camera3;
 import android.content.Context;
 import android.graphics.ImageFormat;
 import android.media.Image;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
 import android.support.test.InstrumentationRegistry;
 import android.support.test.runner.AndroidJUnit4;
 import android.util.Size;
 
-import org.jetbrains.annotations.Contract;
+import net.jodah.concurrentunit.Waiter;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.util.Arrays;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 
+import static com.avalancheevantage.camera3.TestUtils.testErrorHandler;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
-/**
- * Instrumentation test, which will execute on an Android device.
- *
- * @see <a href="http://d.android.com/tools/testing">Testing documentation</a>
- */
 @RunWith(AndroidJUnit4.class)
 public class BasicInstrumentedTest {
     @Test
@@ -36,63 +29,6 @@ public class BasicInstrumentedTest {
         assertEquals("com.avalancheevantage.camera3", appContext.getPackageName());
     }
 
-    private static class ErrorHandlerErrorException extends RuntimeException {
-        ErrorHandlerErrorException(String message, Exception cause) {
-            super(message, cause);
-        }
-    }
-
-    private static class ErrorHandlerWarningException extends RuntimeException {
-        ErrorHandlerWarningException(String message) {
-            super(message);
-        }
-    }
-
-    private static final ErrorHandler testErrorHandler = new ErrorHandler() {
-        @Override
-        public void error(String message, @Nullable Exception e) {
-            throw new ErrorHandlerErrorException(message, e);
-        }
-
-        @Override
-        public void warning(String message) {
-            throw new ErrorHandlerWarningException(message);
-        }
-
-        @Override
-        public void info(String message) {
-        }
-    };
-
-    @Contract(pure = true)
-    @NonNull
-    private static ErrorHandler expectError(@NonNull final Class<? extends Exception> exception,
-                                            @NonNull final Lock lock) {
-        lock.lock();
-        return new ErrorHandler() {
-            @Override
-            public void error(String message, @Nullable Exception e) {
-                if (e != null && e.getClass() == exception) {
-                    assertTrue(true);
-                    synchronized (lock) {
-                        lock.unlock();
-                    }
-                } else {
-                    throw new ErrorHandlerErrorException(message, e);
-                }
-            }
-
-            @Override
-            public void warning(String message) {
-                throw new ErrorHandlerWarningException(message);
-            }
-
-            @Override
-            public void info(String message) {
-
-            }
-        };
-    }
 
     @Test
     public void instantiateWithoutCrashing() throws Exception {
@@ -102,46 +38,67 @@ public class BasicInstrumentedTest {
     }
 
     @Test
-    public void openCameraWithoutTarget() throws Exception {
-        Context appContext = InstrumentationRegistry.getTargetContext();
+    public void asyncTest() throws Exception {
+        final Waiter waiter = new Waiter();
 
-        final Lock lock = new ReentrantLock();
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                waiter.assertEquals("foo", "foo");
+                waiter.resume();
+            }
+        }).start();
 
-        Camera3 camera3 = new Camera3(appContext, expectError(IllegalArgumentException.class, lock));
-        String cameraId = camera3.getAvailableCameras().get(0);
-        camera3.startCaptureSession(cameraId, null, null);
-
-        synchronized (lock) {
-            assertTrue(lock.tryLock(5, SECONDS));
-        }
-
+        waiter.await(1000);
     }
 
     @Test
-    public void startCaptureSession() throws Exception {
-        Context appContext = InstrumentationRegistry.getTargetContext();
+    public void openCameraWithoutTarget() throws Exception {
+        final Context appContext = InstrumentationRegistry.getTargetContext();
 
-        final Lock lock = new ReentrantLock();
+        final Waiter waiter = new Waiter();
+        TestUtils.ExpectError errorHandler = new TestUtils.ExpectError(IllegalArgumentException.class, waiter);
 
-        Camera3 camera3 = new Camera3(appContext, expectError(IllegalArgumentException.class, lock));
+        Camera3 camera3 = new Camera3(appContext, errorHandler);
         String cameraId = camera3.getAvailableCameras().get(0);
 
-        Size size = camera3.getLargestAvailableSize(cameraId, ImageFormat.JPEG);
+        camera3.startCaptureSession(cameraId, null, null);
 
-        StillImageCaptureSession cs = camera3.createStillImageCaptureSession(
-                ImageFormat.JPEG, size, new OnImageAvailableListener() {
+
+        assertTrue(errorHandler.gotError());
+
+        waiter.await(5, SECONDS);
+    }
+
+    @Test
+    public void openCamera() throws Exception {
+        final Context appContext = InstrumentationRegistry.getTargetContext();
+
+        final Waiter waiter = new Waiter();
+
+        Camera3 camera3 = new Camera3(appContext, testErrorHandler);
+        String cameraId = camera3.getAvailableCameras().get(0);
+
+        final Size size = camera3.getLargestAvailableSize(cameraId, ImageFormat.JPEG);
+        final StillImageCaptureSession cs = camera3.createStillImageCaptureSession(
+                ImageFormat.JPEG, size,
+                new OnImageAvailableListener() {
                     @Override
                     public void onImageAvailable(Image image) {
 
                     }
                 });
 
-        camera3.startCaptureSession(cameraId, null, Arrays.asList(cs));
+        camera3.startCaptureSession(cameraId, null, Arrays.asList(cs),
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        waiter.resume();
+                    }
+                });
 
-        synchronized (lock) {
-            assertTrue(lock.tryLock(5, SECONDS));
-        }
-
-//        camera3.pause();
+        waiter.await(5, SECONDS);
     }
+
+
 }
