@@ -33,6 +33,7 @@ import android.media.Image;
 import android.media.ImageReader;
 import android.os.Handler;
 import android.os.HandlerThread;
+import android.os.Looper;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.content.ContextCompat;
@@ -45,12 +46,14 @@ import android.view.TextureView;
 import org.jetbrains.annotations.Contract;
 
 import java.io.File;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.Queue;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
@@ -85,6 +88,7 @@ public final class Camera3 {
 
 
     private enum CameraState {
+        //Waiting for the camera to open
         WAITING_CAMERA_OPEN,
         //Showing camera preview
         PREVIEW,
@@ -119,8 +123,8 @@ public final class Camera3 {
      */
     private CameraDevice mCameraDevice;
 
-    //    private Queue<ImageCaptureRequest> mCaptureRequestQueue = new ArrayDeque<>();
-    private ImageCaptureRequest mCaptureRequest;
+    private Queue<ImageCaptureRequest> mCaptureRequestQueue = new ArrayDeque<>();
+//    private ImageCaptureRequest mCaptureRequest;
 
     private HandlerThread mBackgroundThread;
     private Handler mBackgroundHandler;
@@ -393,9 +397,9 @@ public final class Camera3 {
             }
 
             mErrorHandler.info("Adding capture request to queue...");
-//        mCaptureRequestQueue.add(
-//                new ImageCaptureRequest(handler, precapture, capture, mErrorHandler));
-            mCaptureRequest = new ImageCaptureRequest(handler, precapture, capture, mErrorHandler);
+        mCaptureRequestQueue.add(
+                new ImageCaptureRequest(handler, precapture, capture, mErrorHandler));
+//            mCaptureRequest = new ImageCaptureRequest(handler, precapture, capture, mErrorHandler);
 
             if (mState == CameraState.PREVIEW) {
                 mErrorHandler.info(
@@ -589,10 +593,7 @@ public final class Camera3 {
                                 mPreviewRequest = mPreviewRequestBuilder.build();
                                 mCaptureSession.setRepeatingRequest(mPreviewRequest,
                                         mCaptureCallback, mBackgroundHandler);
-                                mState = CameraState.PREVIEW;
-                                if (mOnSessionStartedCallback != null) {
-                                    mOnSessionStartedCallback.run();
-                                }
+                                onSessionStarted();
                             } catch (CameraAccessException e) {
                                 reportCameraAccessException(e);
                             }
@@ -624,11 +625,7 @@ public final class Camera3 {
                             }
 
                             mCaptureSession = cameraCaptureSession;
-
-                            mState = CameraState.PREVIEW;
-                            if (mOnSessionStartedCallback != null) {
-                                mOnSessionStartedCallback.run();
-                            }
+                            onSessionStarted();
                         }
 
                         @Override
@@ -640,6 +637,13 @@ public final class Camera3 {
                     }, null);
         } catch (CameraAccessException e) {
             reportCameraAccessException(e);
+        }
+    }
+
+    private void onSessionStarted() {
+        mState = CameraState.PREVIEW;
+        if (mOnSessionStartedCallback != null) {
+            mOnSessionStartedCallback.run();
         }
     }
 
@@ -854,7 +858,7 @@ public final class Camera3 {
                                 mErrorHandler.info("AE State null or converged, moving to capture image");
                                 captureStillPicture();
                             } else {
-                                ImageCaptureRequest request = mCaptureRequest;//mCaptureRequestQueue.peek();
+                                ImageCaptureRequest request = mCaptureRequestQueue.peek();
                                 if (request == null) {
                                     mErrorHandler.error(
                                             "Internal Error: Request Queue was empty when trying to run precapture",
@@ -934,7 +938,7 @@ public final class Camera3 {
             return;
         }
 
-        ImageCaptureRequest request = mCaptureRequest;//mCaptureRequestQueue.poll();
+        ImageCaptureRequest request = mCaptureRequestQueue.poll();
         if (request == null) {
             mErrorHandler.error("Internal Error: capture queue was empty", null);
             return;
@@ -980,12 +984,14 @@ public final class Camera3 {
 
             mCaptureSession.stopRepeating();
             mCaptureSession.abortCaptures();
-            //checking for bug
-            //exception always comes up when session started in onCreate
-            Log.d(TAG, "captureCallback == " + captureCallback);
-            Log.d(TAG, "imageReader.getSurface() == " + imageReader.getSurface());
-            //TODO check for bug: got an IllegalArgumentException here:
-            mCaptureSession.capture(captureBuilder.build(), captureCallback, null);
+
+            //if this is called from a thread without a looper (esp in testing), use the background
+            //handler to handle the result
+            Handler captureHandler = null;
+            if(Looper.myLooper() == null) {
+                captureHandler = mBackgroundHandler;
+            }
+            mCaptureSession.capture(captureBuilder.build(), captureCallback, captureHandler);
             mState = CameraState.PREVIEW;
         } catch (CameraAccessException e) {
             reportCameraAccessException(e);

@@ -15,6 +15,7 @@ import org.junit.runner.RunWith;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.concurrent.TimeoutException;
 
 import static com.avalancheevantage.camera3.TestUtils.testErrorHandler;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -137,6 +138,7 @@ public class StillCaptureTests {
                 ImageFormat.JPEG, size, new OnImageAvailableListener() {
             @Override
             public void onImageAvailable(Image image) {
+                waiter.assertNotNull(image);
                 waiter.resume();
             }
         });
@@ -189,5 +191,57 @@ public class StillCaptureTests {
                 Camera3.CAPTURE_CONFIG_DEFAULT);
 
         waiter.await(5, SECONDS);
+    }
+
+    @Test
+    public void captureMultipleImages() throws Exception {
+        final Context appContext = InstrumentationRegistry.getTargetContext();
+        final Waiter[] waiterWrapper = new Waiter[1];
+        final Waiter master = new Waiter();
+        final int[] imagesCaptured = new int[]{0};
+        final int NUM_IMAGES = 5;
+
+        final Camera3 camera = new Camera3(appContext, testErrorHandler);
+        final String cameraId = camera.getAvailableCameras().get(0);
+
+        final Size size = camera.getLargestAvailableSize(cameraId, ImageFormat.JPEG);
+
+        final StillCaptureHandler cs = new StillCaptureHandler(
+                ImageFormat.JPEG, size, new OnImageAvailableListener() {
+                    @Override
+                    public void onImageAvailable(Image image) {
+                        synchronized (imagesCaptured) {
+                            imagesCaptured[0]++;
+                        }
+                        waiterWrapper[0].resume();
+                    }
+                });
+
+        camera.startCaptureSession(cameraId, null, Collections.singletonList(cs),
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        new Thread(new Runnable() {
+                            @Override
+                            public void run() {
+                                for (int i = 0; i < NUM_IMAGES; i++) {
+                                    waiterWrapper[0] = new Waiter();
+                                    camera.captureImage(cs, Camera3.PRECAPTURE_CONFIG_NONE,
+                                            Camera3.CAPTURE_CONFIG_DEFAULT);
+                                    try {
+                                        waiterWrapper[0].await(5, SECONDS);
+                                    } catch (TimeoutException e) {
+                                        master.fail(e);
+                                    }
+                                }
+                                master.resume();
+                            }
+                        }).start();
+
+                    }
+                });
+
+        master.await(10, SECONDS);
+        Assert.assertEquals(NUM_IMAGES, imagesCaptured[0]);
     }
 }
