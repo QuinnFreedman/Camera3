@@ -11,7 +11,6 @@ import android.support.annotation.NonNull;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.util.Size;
-import android.view.MotionEvent;
 import android.view.View;
 import android.widget.CompoundButton;
 import android.widget.Switch;
@@ -132,14 +131,12 @@ public class MainActivity extends AppCompatActivity {
                         });
         cameraManager.startCaptureSession(cameraId, mShowPreview ? previewHandler : null,
                 Collections.singletonList(captureSession));
-        findViewById(R.id.capture).setOnTouchListener(new View.OnTouchListener() {
+        findViewById(R.id.capture).setOnClickListener(new View.OnClickListener() {
             @Override
-            public boolean onTouch(View v, MotionEvent event) {
+            public void onClick(View v) {
                 cameraManager.captureImage(captureSession,
                         Camera3.PRECAPTURE_CONFIG_TRIGGER_AUTO_FOCUS,
                         Camera3.CAPTURE_CONFIG_DEFAULT);
-                v.performClick();
-                return false;
             }
         });
     }

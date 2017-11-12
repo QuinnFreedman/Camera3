@@ -2,6 +2,7 @@ package com.avalancheevantage.camera3;
 
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.util.Log;
 
 import net.jodah.concurrentunit.Waiter;
 
@@ -36,6 +37,7 @@ public class TestUtils {
 
         @Override
         public void info(String message) {
+            Log.i("TEST_INFO", message);
         }
     };
 

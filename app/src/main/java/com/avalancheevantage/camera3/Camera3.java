@@ -46,14 +46,14 @@ import android.view.TextureView;
 import org.jetbrains.annotations.Contract;
 
 import java.io.File;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
-import java.util.Queue;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
@@ -123,8 +123,8 @@ public final class Camera3 {
      */
     private CameraDevice mCameraDevice;
 
-    private Queue<ImageCaptureRequest> mCaptureRequestQueue = new ArrayDeque<>();
-//    private ImageCaptureRequest mCaptureRequest;
+    private final BlockingQueue<ImageCaptureRequest> mCaptureRequestQueue = new LinkedBlockingDeque<>();
+    private ImageCaptureRequest mCurrentCaptureRequest;
 
     private HandlerThread mBackgroundThread;
     private Handler mBackgroundHandler;
@@ -133,16 +133,12 @@ public final class Camera3 {
     private Integer mSensorOrientation;
     private CaptureRequest.Builder mPreviewRequestBuilder;
 
-    //    private String mCameraId;
-//    @Nullable private PreviewHandler mPreviewSession;
-//    @NonNull private List<StillCaptureHandler> mStillCaptureSessions = new ArrayList<>();
     @Nullable
     private Session mSession;
     @NonNull
     private ErrorHandler mErrorHandler;
     private CaptureRequest mPreviewRequest;
     private boolean mStarted = false;
-//    private boolean mNotPaused = false;
 
     public static final ImageCaptureRequestConfiguration PRECAPTURE_CONFIG_TRIGGER_AUTO_FOCUS =
             new ImageCaptureRequestConfiguration() {
@@ -384,9 +380,9 @@ public final class Camera3 {
             }
             Objects.requireNonNull(handler, "capture handler is null");
 
-            if (mSession == null) {
-                throw new IllegalStateException(
-                        "Internal error: Somehow the handler is null even though started is true");
+            if (requireNotNull(mSession,
+                    "Internal error: Somehow the session is null even though started is true")) {
+                return;
             }
 
             if (!mSession.getStillCaptures().contains(handler)) {
@@ -397,24 +393,41 @@ public final class Camera3 {
             }
 
             mErrorHandler.info("Adding capture request to queue...");
-        mCaptureRequestQueue.add(
-                new ImageCaptureRequest(handler, precapture, capture, mErrorHandler));
-//            mCaptureRequest = new ImageCaptureRequest(handler, precapture, capture, mErrorHandler);
+            mCaptureRequestQueue.add(
+                    new ImageCaptureRequest(handler, precapture, capture, mErrorHandler));
 
             if (mState == CameraState.PREVIEW) {
                 mErrorHandler.info(
                         "Camera was in PREVIEW state, so request will be resolved immediately");
-                if (mSession.getPreview() == null) {
-                    captureStillPicture();
-                } else {
-                    lockFocus();
-                }
+                popRequestQueue();
             } else {
-                mErrorHandler.warning("Trying to capture an image when state is " + mState.name());
+                mErrorHandler.info("Camera state is " + mState.name() + ". The image will be captured ASAP");
             }
 
         } catch (Exception e) {
             reportUnknownException(e);
+        }
+    }
+
+    private void popRequestQueue() {
+        mErrorHandler.info("Checking queue size. "+mCaptureRequestQueue.size()+" requests left in queue.");
+        mCurrentCaptureRequest = mCaptureRequestQueue.poll();
+        if (mCurrentCaptureRequest != null) {
+            if (!mStarted) {
+                mErrorHandler.warning("" +
+                        "Attempting to dequeue capture request after the session has been stopped");
+            }
+            if (requireNotNull(mSession,
+                    "Internal error: Somehow the session is null even though started is true")) {
+                return;
+            }
+            if (mSession.getPreview() == null) {
+                captureStillPicture();
+            } else {
+                lockFocus();
+            }
+        } else {
+            mErrorHandler.info("Request queue was empty -- nothing to do");
         }
     }
 
@@ -423,14 +436,39 @@ public final class Camera3 {
         return mErrorHandler;
     }
 
+    /**
+     * It is only safe to call {@link Camera3#resume()} if you have already configured a capture
+     * session with {@link Camera3#startCaptureSession(String, PreviewHandler, List, Runnable)}.
+     * This method allows you to check that status.
+     *
+     * @return true if this instance of camera3 is configured with a capture session
+     */
     @Contract(pure = true)
     public boolean captureConfigured() {
         return mSession != null;
     }
 
+    /**
+     * Images can only be captured between calling {@link Camera3#resume()} or
+     * {@link Camera3#startCaptureSession(String, PreviewHandler, List, Runnable)} and calling
+     * {@link Camera3#pause()}. This method allows you to check whether the camera can receive
+     * requests. If this is false, you can call {@link Camera3#resume()}.
+     *
+     * @return <code>true</code> if the camera can receive requests
+     */
     @Contract(pure = true)
     public boolean isStarted() {
         return mStarted;
+    }
+
+    /**
+     * Check if there are any enqueued requests that have not yet been resolved
+     *
+     * @return <code>true</code> if the request queue is not empty.
+     */
+    @Contract(pure = true)
+    public boolean requestsInQueue() {
+        return !mCaptureRequestQueue.isEmpty();
     }
 
     private void openCamera(String cameraId, @Nullable Size previewTextureSize) {
@@ -642,9 +680,11 @@ public final class Camera3 {
 
     private void onSessionStarted() {
         mState = CameraState.PREVIEW;
+        mErrorHandler.info("Session started. Calling onSessionStarted callback...");
         if (mOnSessionStartedCallback != null) {
             mOnSessionStartedCallback.run();
         }
+//TODO        popRequestQueue();
     }
 
     @NonNull
@@ -710,16 +750,11 @@ public final class Camera3 {
         } catch (CameraAccessException e) {
             reportCameraAccessException(e);
         }
-        //FIXME
-//        if (!mCaptureRequestQueue.isEmpty()) {
-//            mErrorHandler.info(
-//                    "Request queue was not empty -- immediately proceeding to capture another image");
-//            if (mPreviewSession == null) {
-//                captureStillPicture();
-//            } else {
-//                lockFocus();
-//            }
-//        }
+        if (requestsInQueue()) {
+            mErrorHandler.info(
+                    "Request queue was not empty -- immediately proceeding to capture another image");
+            popRequestQueue();
+        }
     }
 
     /**
@@ -814,6 +849,7 @@ public final class Camera3 {
 
         @Override
         public void onDisconnected(@NonNull CameraDevice cameraDevice) {
+            mErrorHandler.info("Camera disconnected");
             mCameraOpenCloseLock.release();
             cameraDevice.close();
             mCameraDevice = null;
@@ -821,6 +857,28 @@ public final class Camera3 {
 
         @Override
         public void onError(@NonNull CameraDevice cameraDevice, int error) {
+            String errorName;
+            switch (error) {
+                case ERROR_CAMERA_DEVICE:
+                    errorName = "ERROR_CAMERA_DEVICE";
+                    break;
+                case ERROR_CAMERA_DISABLED:
+                    errorName = "ERROR_CAMERA_DISABLED";
+                    break;
+                case ERROR_CAMERA_IN_USE:
+                    errorName = "ERROR_CAMERA_IN_USE";
+                    break;
+                case ERROR_CAMERA_SERVICE:
+                    errorName = "ERROR_CAMERA_SERVICE";
+                    break;
+                case ERROR_MAX_CAMERAS_IN_USE:
+                    errorName = "ERROR_MAX_CAMERAS_IN_USE";
+                    break;
+                default:
+                    errorName = "No error message";
+                    break;
+            }
+            mErrorHandler.error("Got error when opening camera: "+errorName, null);
             mCameraOpenCloseLock.release();
             cameraDevice.close();
             mCameraDevice = null;
@@ -858,7 +916,7 @@ public final class Camera3 {
                                 mErrorHandler.info("AE State null or converged, moving to capture image");
                                 captureStillPicture();
                             } else {
-                                ImageCaptureRequest request = mCaptureRequestQueue.peek();
+                                ImageCaptureRequest request = mCurrentCaptureRequest;
                                 if (request == null) {
                                     mErrorHandler.error(
                                             "Internal Error: Request Queue was empty when trying to run precapture",
@@ -938,7 +996,7 @@ public final class Camera3 {
             return;
         }
 
-        ImageCaptureRequest request = mCaptureRequestQueue.poll();
+        ImageCaptureRequest request = mCurrentCaptureRequest;
         if (request == null) {
             mErrorHandler.error("Internal Error: capture queue was empty", null);
             return;
@@ -972,15 +1030,14 @@ public final class Camera3 {
 
             CameraCaptureSession.CaptureCallback captureCallback
                     = new CameraCaptureSession.CaptureCallback() {
-
-                @Override
-                public void onCaptureCompleted(@NonNull CameraCaptureSession session,
-                                               @NonNull CaptureRequest request,
-                                               @NonNull TotalCaptureResult result) {
-                    mErrorHandler.info("Capture Completed. result == " + result);
-                    unlockFocus();
-                }
-            };
+                        @Override
+                        public void onCaptureCompleted(@NonNull CameraCaptureSession session,
+                                                       @NonNull CaptureRequest request,
+                                                       @NonNull TotalCaptureResult result) {
+                            mErrorHandler.info("Capture Completed. result == " + result);
+                            unlockFocus();
+                        }
+                    };
 
             mCaptureSession.stopRepeating();
             mCaptureSession.abortCaptures();
@@ -988,7 +1045,7 @@ public final class Camera3 {
             //if this is called from a thread without a looper (esp in testing), use the background
             //handler to handle the result
             Handler captureHandler = null;
-            if(Looper.myLooper() == null) {
+            if (Looper.myLooper() == null) {
                 captureHandler = mBackgroundHandler;
             }
             mCaptureSession.capture(captureBuilder.build(), captureCallback, captureHandler);

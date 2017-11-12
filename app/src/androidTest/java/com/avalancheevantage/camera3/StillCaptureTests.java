@@ -5,6 +5,7 @@ import android.graphics.ImageFormat;
 import android.media.Image;
 import android.support.test.InstrumentationRegistry;
 import android.support.test.runner.AndroidJUnit4;
+import android.util.Log;
 import android.util.Size;
 
 import net.jodah.concurrentunit.Waiter;
@@ -170,20 +171,18 @@ public class StillCaptureTests {
         final Context appContext = InstrumentationRegistry.getTargetContext();
         final Waiter waiter = new Waiter();
 
-        final ErrorHandler errorHandler = new TestUtils.ExpectWarning(
-                "Trying to capture an image when state is WAITING_CAMERA_OPEN",
-                waiter, true);
-
-        final Camera3 camera = new Camera3(appContext, errorHandler);
+        final Camera3 camera = new Camera3(appContext, testErrorHandler);
         final String cameraId = camera.getAvailableCameras().get(0);
 
         final Size size = camera.getLargestAvailableSize(cameraId, ImageFormat.JPEG);
 
         final StillCaptureHandler cs = new StillCaptureHandler(
                 ImageFormat.JPEG, size, new OnImageAvailableListener() {
-                    @Override
-                    public void onImageAvailable(Image image) {}
-                });
+            @Override
+            public void onImageAvailable(Image image) {
+                waiter.resume();
+            }
+        });
 
         camera.startCaptureSession(cameraId, null, Collections.singletonList(cs));
 
@@ -208,14 +207,15 @@ public class StillCaptureTests {
 
         final StillCaptureHandler cs = new StillCaptureHandler(
                 ImageFormat.JPEG, size, new OnImageAvailableListener() {
-                    @Override
-                    public void onImageAvailable(Image image) {
-                        synchronized (imagesCaptured) {
-                            imagesCaptured[0]++;
-                        }
-                        waiterWrapper[0].resume();
-                    }
-                });
+            @Override
+            public void onImageAvailable(Image image) {
+                master.assertNotNull(image);
+                synchronized (imagesCaptured) {
+                    imagesCaptured[0]++;
+                }
+                waiterWrapper[0].resume();
+            }
+        });
 
         camera.startCaptureSession(cameraId, null, Collections.singletonList(cs),
                 new Runnable() {
@@ -242,6 +242,43 @@ public class StillCaptureTests {
                 });
 
         master.await(10, SECONDS);
+        Assert.assertEquals(NUM_IMAGES, imagesCaptured[0]);
+    }
+
+    @Test
+    public void captureMultipleImagesWithoutWaiting() throws Exception {
+        final Context appContext = InstrumentationRegistry.getTargetContext();
+        final Waiter waiter = new Waiter();
+        final int[] imagesCaptured = new int[]{0};
+        final int NUM_IMAGES = 5;
+
+        final Camera3 camera = new Camera3(appContext, testErrorHandler);
+        final String cameraId = camera.getAvailableCameras().get(0);
+
+        final Size size = camera.getLargestAvailableSize(cameraId, ImageFormat.JPEG);
+
+        final StillCaptureHandler cs = new StillCaptureHandler(
+                ImageFormat.JPEG, size, new OnImageAvailableListener() {
+                    @Override
+                    public void onImageAvailable(Image image) {
+                        waiter.assertNotNull(image);
+                        synchronized (imagesCaptured) {
+                            imagesCaptured[0]++;
+                            Log.d("TEST","imagesCaptured == "+imagesCaptured[0]);
+                            if (imagesCaptured[0] == NUM_IMAGES) {
+                                waiter.resume();
+                            }
+                        }
+                    }
+                });
+
+        camera.startCaptureSession(cameraId, null, Collections.singletonList(cs));
+        for (int i = 0; i < NUM_IMAGES; i++) {
+            camera.captureImage(cs, Camera3.PRECAPTURE_CONFIG_NONE,
+                    Camera3.CAPTURE_CONFIG_DEFAULT);
+        }
+
+        waiter.await(10, SECONDS);
         Assert.assertEquals(NUM_IMAGES, imagesCaptured[0]);
     }
 }
