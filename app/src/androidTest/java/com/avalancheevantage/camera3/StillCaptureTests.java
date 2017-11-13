@@ -250,7 +250,7 @@ public class StillCaptureTests {
         final Context appContext = InstrumentationRegistry.getTargetContext();
         final Waiter waiter = new Waiter();
         final int[] imagesCaptured = new int[]{0};
-        final int NUM_IMAGES = 5;
+        final int NUM_IMAGES = 6;
 
         final Camera3 camera = new Camera3(appContext, testErrorHandler);
         final String cameraId = camera.getAvailableCameras().get(0);
@@ -278,7 +278,7 @@ public class StillCaptureTests {
                     Camera3.CAPTURE_CONFIG_DEFAULT);
         }
 
-        waiter.await(10, SECONDS);
+        waiter.await();
         Assert.assertEquals(NUM_IMAGES, imagesCaptured[0]);
     }
 }

@@ -5,6 +5,7 @@ import android.media.ImageReader;
 import android.os.Handler;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.util.Log;
 import android.util.Size;
 
 import org.jetbrains.annotations.Contract;
@@ -28,14 +29,14 @@ public final class StillCaptureHandler {
     private static final int MAX_IMAGES = 2;
 
     private final int imageFormat;
-    @Nullable
-    private ImageReader.OnImageAvailableListener camera2ImageAvailableListener;
     @NonNull
     private final OnImageAvailableListener imageAvailableListener;
     @Nullable
     private Size imageSize;
     @Nullable
     private ImageReader imageReader;
+    @Nullable
+    private Camera3 camera3;
 
     public int getImageFormat() {
         return imageFormat;
@@ -53,9 +54,8 @@ public final class StillCaptureHandler {
      *                  {@link Camera3#getLargestAvailableSize(String, int)}
      *                  //TODO test when this is not from the list
      * @param onImageAvailableListener a callback to receive the images from this session once they
- *                                 have been captured
+     *                                 have been captured
      */
-    //TODO set errorHandler from camera3
     public StillCaptureHandler(final int imageFormat,
                                @NonNull final Size imageSize,
                                @NonNull final OnImageAvailableListener onImageAvailableListener) {
@@ -80,27 +80,35 @@ public final class StillCaptureHandler {
         return imageReader;
     }
 
-    void closeImageReader() {
+    void close() {
         if (this.imageReader != null) {
             this.imageReader.close();
             this.imageReader = null;
         }
+        this.camera3 = null;
     }
 
-    void openImageReader(@NonNull final Handler backgroundHandler,
-                         @NonNull final ErrorHandler errorHandler) {
+    void initialize(@NonNull final Handler backgroundHandler,
+                    @NonNull final Camera3 camera3) {
+        if (this.camera3 != null && camera3 != this.camera3) {
+            throw new IllegalStateException(
+                    "This StillCaptureHandler is already in use by another Camera3 instance");
+        }
+        this.camera3 = camera3;
         this.imageReader = ImageReader.newInstance(imageSize.getWidth(), imageSize.getHeight(),
                 imageFormat, MAX_IMAGES);
         this.imageReader.setOnImageAvailableListener(
                 new ImageReader.OnImageAvailableListener() {
                     @Override
                     public void onImageAvailable(ImageReader reader) {
+                        Log.d("StillCaptureHandler", "Image available");
+                        camera3.popRequestQueue();
                         try {
                             Image image = reader.acquireNextImage();
                             imageAvailableListener.onImageAvailable(image);
                             image.close();
                         } catch (IllegalStateException e) {
-                            errorHandler.error(
+                            camera3.getErrorHandler().error(
                                     "The image queue for this capture session is full. " +
                                             "More images must be processed before any new ones can " +
                                             "be captured.", e);

@@ -312,7 +312,7 @@ public final class Camera3 {
         this.mStarted = true;
         startBackgroundThread();
         for (StillCaptureHandler imageCaptureSession : session.getStillCaptures()) {
-            imageCaptureSession.openImageReader(mBackgroundHandler, mErrorHandler);
+            imageCaptureSession.initialize(mBackgroundHandler, this);
         }
 
         mErrorHandler.info("starting preview");
@@ -409,12 +409,20 @@ public final class Camera3 {
         }
     }
 
-    private void popRequestQueue() {
-        mErrorHandler.info("Checking queue size. "+mCaptureRequestQueue.size()+" requests left in queue.");
+    void popRequestQueue() {
+        mErrorHandler.info("Popping request queue...");
+        mErrorHandler.info("About "+mCaptureRequestQueue.size()+" requests left in queue.");
+        CameraState state = mState;
+        if (state != CameraState.PREVIEW) {
+            mErrorHandler.info("Trying to pop queue when in mode: "+state.name()+". Aborting.");
+            return;
+        }
         mCurrentCaptureRequest = mCaptureRequestQueue.poll();
         if (mCurrentCaptureRequest != null) {
+            mErrorHandler.info(
+                    "Request queue was not empty -- immediately proceeding to capture another image");
             if (!mStarted) {
-                mErrorHandler.warning("" +
+                mErrorHandler.warning(
                         "Attempting to dequeue capture request after the session has been stopped");
             }
             if (requireNotNull(mSession,
@@ -559,8 +567,8 @@ public final class Camera3 {
                 mErrorHandler.warning("Internal Error: session null when closing camera");
                 return;
             }
-            for (StillCaptureHandler imageCaptureSession : mSession.getStillCaptures()) {
-                imageCaptureSession.closeImageReader();
+            for (StillCaptureHandler captureHandler : mSession.getStillCaptures()) {
+                captureHandler.close();
 
             }
         } catch (InterruptedException e) {
@@ -684,7 +692,7 @@ public final class Camera3 {
         if (mOnSessionStartedCallback != null) {
             mOnSessionStartedCallback.run();
         }
-//TODO        popRequestQueue();
+        popRequestQueue();
     }
 
     @NonNull
@@ -694,16 +702,16 @@ public final class Camera3 {
                 "Internal error: session is null when calling getCaptureTargetSurfaces()")) {
             return new ArrayList<>();
         }
-        for (StillCaptureHandler captureSession : mSession.getStillCaptures()) {
-            if (captureSession == null) {
+        for (StillCaptureHandler captureHandler : mSession.getStillCaptures()) {
+            if (captureHandler == null) {
                 mErrorHandler.error("a StillCaptureHandler is null", null);
                 continue;
             }
-            if (captureSession.getImageReader() == null) {
+            if (captureHandler.getImageReader() == null) {
                 mErrorHandler.error("a StillCaptureHandler has a null ImageReader", null);
                 continue;
             }
-            targetSurfaces.add(captureSession.getImageReader().getSurface());
+            targetSurfaces.add(captureHandler.getImageReader().getSurface());
         }
         return targetSurfaces;
     }
@@ -749,11 +757,6 @@ public final class Camera3 {
             }
         } catch (CameraAccessException e) {
             reportCameraAccessException(e);
-        }
-        if (requestsInQueue()) {
-            mErrorHandler.info(
-                    "Request queue was not empty -- immediately proceeding to capture another image");
-            popRequestQueue();
         }
     }
 
