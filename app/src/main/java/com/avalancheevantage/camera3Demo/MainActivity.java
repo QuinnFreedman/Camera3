@@ -16,11 +16,11 @@ import android.widget.CompoundButton;
 import android.widget.Switch;
 import android.widget.Toast;
 
-import com.avalancheevantage.camera3.AutoFitTextureView;
-import com.avalancheevantage.camera3.Camera3;
-import com.avalancheevantage.camera3.OnImageAvailableListener;
-import com.avalancheevantage.camera3.PreviewHandler;
-import com.avalancheevantage.camera3.StillCaptureHandler;
+import com.avalancheevantage.android.camera3.AutoFitTextureView;
+import com.avalancheevantage.android.camera3.Camera3;
+import com.avalancheevantage.android.camera3.OnImageAvailableListener;
+import com.avalancheevantage.android.camera3.PreviewHandler;
+import com.avalancheevantage.android.camera3.StillCaptureHandler;
 
 import java.util.Collections;
 
