@@ -1,4 +1,4 @@
-package com.avalancheevantage.camera3;
+package com.avalancheevantage.android.camera3;
 
 import android.Manifest;
 import android.content.Context;
@@ -9,10 +9,6 @@ import android.support.test.rule.GrantPermissionRule;
 import android.support.test.runner.AndroidJUnit4;
 import android.util.Size;
 
-import com.avalancheevantage.android.camera3.Camera3;
-import com.avalancheevantage.android.camera3.OnImageAvailableListener;
-import com.avalancheevantage.android.camera3.StillCaptureHandler;
-
 import net.jodah.concurrentunit.Waiter;
 
 import org.junit.Rule;
@@ -21,7 +17,7 @@ import org.junit.runner.RunWith;
 
 import java.util.Arrays;
 
-import static com.avalancheevantage.camera3.TestUtils.testErrorHandler;
+import static com.avalancheevantage.android.camera3.TestUtils.testErrorHandler;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assert.assertTrue;
 

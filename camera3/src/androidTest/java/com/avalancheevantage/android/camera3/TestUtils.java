@@ -1,10 +1,8 @@
-package com.avalancheevantage.camera3;
+package com.avalancheevantage.android.camera3;
 
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.util.Log;
-
-import com.avalancheevantage.android.camera3.ErrorHandler;
 
 import net.jodah.concurrentunit.Waiter;
 

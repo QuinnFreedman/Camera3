@@ -1,4 +1,4 @@
-package com.avalancheevantage.camera3;
+package com.avalancheevantage.android.camera3;
 
 import android.Manifest;
 import android.content.Context;
@@ -9,10 +9,6 @@ import android.support.test.rule.GrantPermissionRule;
 import android.support.test.runner.AndroidJUnit4;
 import android.util.Log;
 import android.util.Size;
-
-import com.avalancheevantage.android.camera3.Camera3;
-import com.avalancheevantage.android.camera3.OnImageAvailableListener;
-import com.avalancheevantage.android.camera3.StillCaptureHandler;
 
 import net.jodah.concurrentunit.Waiter;
 
@@ -25,7 +21,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.concurrent.TimeoutException;
 
-import static com.avalancheevantage.camera3.TestUtils.testErrorHandler;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 /**
@@ -43,7 +38,7 @@ public class StillCaptureTests {
     public void startStillCaptureSession() throws Exception {
         final Context appContext = InstrumentationRegistry.getTargetContext();
 
-        Camera3 camera3 = new Camera3(appContext, testErrorHandler);
+        Camera3 camera3 = new Camera3(appContext, TestUtils.testErrorHandler);
         String cameraId = camera3.getAvailableCameras().get(0);
 
         Size size = camera3.getLargestAvailableSize(cameraId, ImageFormat.JPEG);
@@ -65,7 +60,7 @@ public class StillCaptureTests {
         final Context appContext = InstrumentationRegistry.getTargetContext();
         final Waiter waiter = new Waiter();
 
-        final Camera3 camera = new Camera3(appContext, testErrorHandler);
+        final Camera3 camera = new Camera3(appContext, TestUtils.testErrorHandler);
         final String cameraId = camera.getAvailableCameras().get(0);
 
         final Size size = camera.getLargestAvailableSize(cameraId, ImageFormat.JPEG);
@@ -183,7 +178,7 @@ public class StillCaptureTests {
         final Context appContext = InstrumentationRegistry.getTargetContext();
         final Waiter waiter = new Waiter();
 
-        final Camera3 camera = new Camera3(appContext, testErrorHandler);
+        final Camera3 camera = new Camera3(appContext, TestUtils.testErrorHandler);
         final String cameraId = camera.getAvailableCameras().get(0);
 
         final Size size = camera.getLargestAvailableSize(cameraId, ImageFormat.JPEG);
@@ -212,7 +207,7 @@ public class StillCaptureTests {
         final int[] imagesCaptured = new int[]{0};
         final int NUM_IMAGES = 5;
 
-        final Camera3 camera = new Camera3(appContext, testErrorHandler);
+        final Camera3 camera = new Camera3(appContext, TestUtils.testErrorHandler);
         final String cameraId = camera.getAvailableCameras().get(0);
 
         final Size size = camera.getLargestAvailableSize(cameraId, ImageFormat.JPEG);
@@ -264,7 +259,7 @@ public class StillCaptureTests {
         final int[] imagesCaptured = new int[]{0};
         final int NUM_IMAGES = 6;
 
-        final Camera3 camera = new Camera3(appContext, testErrorHandler);
+        final Camera3 camera = new Camera3(appContext, TestUtils.testErrorHandler);
         final String cameraId = camera.getAvailableCameras().get(0);
 
         final Size size = camera.getLargestAvailableSize(cameraId, ImageFormat.JPEG);
