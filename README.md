@@ -2,9 +2,13 @@
 
 **Camera3** is a wrapper around the [Android Camera2 API](https://developer.android.com/reference/android/hardware/camera2/package-summary.html). It aims to provide a simpler, safer interface to the underlying power of Camera2.
 
-Right now, Camera3 only supports preview and still capture functionality. However, it will add video and burst capture support very soon.
+Camera3 was just added to MavenCentral. To use it, add
+```
+compile 'com.avalancheevantage.android:camera3:0.1.0'
+```
+to your `build.gradle`.
 
-Camera3 isn't on MavenCentral or JCenter yet either. If you want to use it now, just copy the `camera3` module from this repo into your app. Soon, it will be available as a dependency that you can simply add to your `build.gradle`.
+Right now, Camera3 only supports preview and still capture functionality. However, it will add video and burst capture support very soon.
 
 ## The Problem
 Beyond the keyboard, the camera is one of the most basic IO devices for a mobile app. If you are on Android, you have two choices for accessing the camera:
@@ -46,3 +50,9 @@ camera.captureImage(capture, Camera3.PRECAPTURE_CONFIG_TRIGGER_AUTO_FOCUS, Camer
 ```
 
 Of course, if you want more control, you can specify your own configurations and add additional listeners, instead of using the minimum defaluts.
+
+## Documentation 
+
+For a more complete example of camera3 in use, check out the camera3demo app in this repository.
+
+You can read the official docs [here](QuinnFreedman.github.io/Camera3)

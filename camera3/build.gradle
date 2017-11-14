@@ -1,4 +1,5 @@
 apply plugin: 'com.android.library'
+apply plugin: 'maven'
 
 ext {
     PUBLISH_GROUP_ID = 'com.avalancheevantage.android'
@@ -36,6 +37,23 @@ dependencies {
     implementation 'net.jodah:concurrentunit:0.4.3'
     androidTestImplementation 'com.android.support.test:runner:1.0.1'
     androidTestImplementation 'com.android.support.test.espresso:espresso-core:3.0.1'
+}
+group = 'com.avalancheevantage.android'
+version = '0.1.0'
+
+task writeNewPom << {
+    pom {
+        project {
+            inceptionYear '2017'
+            licenses {
+                license {
+                    name 'MIT License'
+                    url 'http://www.opensource.org/licenses/mit-license.php'
+                    distribution 'repo'
+                }
+            }
+        }
+    }.writeTo("pom.xml")
 }
 
 
