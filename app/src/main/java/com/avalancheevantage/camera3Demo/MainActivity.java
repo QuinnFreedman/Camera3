@@ -95,6 +95,7 @@ public class MainActivity extends AppCompatActivity {
         PreviewHandler previewHandler = new PreviewHandler(
                 previewTexture,
                 null,
+                null,
                 new Camera3.PreviewSizeCallback() {
                     @Override
                     public void previewSizeSelected(int orientation, Size size) {

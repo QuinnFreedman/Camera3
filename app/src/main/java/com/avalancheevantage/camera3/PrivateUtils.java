@@ -98,13 +98,11 @@ class PrivateUtils {
      * Configures the necessary {@link android.graphics.Matrix} transformation for the
      * TextureView for a PreviewHandler
      * @param previewHandler     The PreviewHandler to configure
-     * @param previewTextureSize The size of the texture to transform the preview to fit.
      * @param context            The application context
      * @param errorHandler       Error handler
      */
     @SuppressWarnings("SuspiciousNameCombination")
     static void configureTransform(@NonNull PreviewHandler previewHandler,
-                                   @NonNull Size previewTextureSize,
                                    @NonNull Context context,
                                    @NonNull ErrorHandler errorHandler) {
         errorHandler.info("Configuring preview transform matrix...");
@@ -115,6 +113,8 @@ class PrivateUtils {
         ) {
             return;
         }
+        Size previewTextureSize = previewHandler.getPreferredSize();
+
         int viewWidth = previewTextureSize.getWidth();
         int viewHeight = previewTextureSize.getHeight();
 

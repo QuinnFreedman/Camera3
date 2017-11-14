@@ -321,14 +321,13 @@ public final class Camera3 {
             TextureView previewTextureView = session.getPreview().getTextureView();
 
             if (previewTextureView.isAvailable()) {
-                openCamera(session.getCameraId(),
-                        new Size(previewTextureView.getWidth(),
-                                previewTextureView.getHeight()));
+                openCamera(session.getCameraId());
             } else {
-                previewTextureView.setSurfaceTextureListener(new PreviewTextureListener(session.getCameraId()));
+                previewTextureView.setSurfaceTextureListener(
+                        new PreviewTextureListener(session.getCameraId()));
             }
         } else {
-            openCamera(session.getCameraId(), null);
+            openCamera(session.getCameraId());
         }
     }
 
@@ -479,9 +478,8 @@ public final class Camera3 {
         return !mCaptureRequestQueue.isEmpty();
     }
 
-    private void openCamera(String cameraId, @Nullable Size previewTextureSize) {
+    private void openCamera(String cameraId) {
         mErrorHandler.info("opening camera");
-        mErrorHandler.info("Preview texture size == " + previewTextureSize);
 
         Integer sensorOrientation = setSensorOrientation(cameraId);
         if (sensorOrientation == null) {
@@ -492,14 +490,13 @@ public final class Camera3 {
             return;
         }
         if (mSession.getPreview() != null) {
-            if (previewTextureSize == null) {
-                mErrorHandler.warning("Preview Session is not null but previewTextureSize is null");
-            } else {
-                setUpPreviewOutput(cameraId, previewTextureSize, sensorOrientation,
-                        mSession.getPreview(), mContext, mErrorHandler);
-                configureTransform(mSession.getPreview(), previewTextureSize,
-                        mContext, mErrorHandler);
-            }
+            Size previewTextureSize = mSession.getPreview().getPreferredSize();
+            mErrorHandler.info("Preview texture size == " + previewTextureSize);
+            setUpPreviewOutput(cameraId, previewTextureSize, sensorOrientation,
+                    mSession.getPreview(), mContext, mErrorHandler);
+            configureTransform(mSession.getPreview(),
+                    mContext, mErrorHandler);
+
         }
         CameraManager manager = (CameraManager) mContext.getSystemService(Context.CAMERA_SERVICE);
         try {
@@ -803,14 +800,13 @@ public final class Camera3 {
 
         @Override
         public void onSurfaceTextureAvailable(SurfaceTexture texture, int width, int height) {
-            openCamera(cameraId, new Size(width, height));
+            openCamera(cameraId);
         }
 
         @Override
         public void onSurfaceTextureSizeChanged(SurfaceTexture texture, int width, int height) {
             if (mSession != null && mSession.getPreview() != null) {
                 configureTransform(mSession.getPreview(),
-                        new Size(width, height),
                         mContext,
                         mErrorHandler);
             }
