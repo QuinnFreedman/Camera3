@@ -55,4 +55,4 @@ Of course, if you want more control, you can specify your own configurations and
 
 For a more complete example of camera3 in use, check out the camera3demo app in this repository.
 
-You can read the official docs [here](QuinnFreedman.github.io/Camera3)
+You can read the official docs [here](https://quinnfreedman.github.io/Camera3/)
