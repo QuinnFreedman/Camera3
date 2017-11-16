@@ -1,5 +1,5 @@
 apply plugin: 'com.android.library'
-apply plugin: 'maven'
+//apply plugin: 'maven'
 
 ext {
     PUBLISH_GROUP_ID = 'com.avalancheevantage.android'
