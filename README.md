@@ -16,7 +16,7 @@ compile 'com.avalancheevantage.android:camera3:0.1.0'
 Right now, Camera3 only supports preview and still capture functionality. However, it will add video and burst capture support very soon.
 
 ## Why Camera3?
-The current Android API ([camera2basic](https://github.com/googlesamples/android-Camera2Basic/blob/master/Application/src/main/java/com/example/android/camera2basic/Camera2BasicFragment.java)) is notoriously bad. Using it requires an elaborate ceremony of callbacks and listeners. Google's official "basic" example using camera2 is [over 1000 lines long](https://github.com/googlesamples/android-Camera2Basic/blob/master/Application/src/main/java/com/example/android/camera2basic/Camera2BasicFragment.java), just to take a simple picture.
+The current Android API ([Camera2](https://developer.android.com/reference/android/hardware/camera2/package-summary.html)) is notoriously bad. Using it requires an elaborate ceremony of callbacks and listeners. Google's official "basic" example using camera2 is [over 1000 lines long](https://github.com/googlesamples/android-Camera2Basic/blob/master/Application/src/main/java/com/example/android/camera2basic/Camera2BasicFragment.java), just to take a simple picture.
 
 There are already a few Android camera utilities available. [Material Camera](https://github.com/afollestad/material-camera) and [CameraKit](https://github.com/wonderkiln/CameraKit-Android/blob/master/demo/src/main/java/com/wonderkiln/camerakit/demo/MainActivity.java) both probide you with pre-packaged camera views that you can drop into your app. Camera3 isn't like that.
 
