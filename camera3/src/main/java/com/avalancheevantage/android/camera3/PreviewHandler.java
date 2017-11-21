@@ -1,5 +1,6 @@
 package com.avalancheevantage.android.camera3;
 
+import android.graphics.SurfaceTexture;
 import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CaptureRequest;
 import android.support.annotation.NonNull;
@@ -22,20 +23,22 @@ import java.util.List;
  */
 
 final public class PreviewHandler {
-    @NonNull
-    private final TextureView previewTextureView;
+    @Nullable
+    private TextureView previewTextureView = null;
     @Nullable
     private final CaptureRequest.Builder previewRequest;
     @Nullable
     private final Camera3.PreviewSizeCallback previewSizeSelected;
     @Nullable
-    private final Size preferredSize;
+    private Size preferredSize = null;
+    @Nullable
+    private SurfaceTexture previewSurface = null;
 
     //actual size of the capture request (from list of available sizes)
     private Size previewSize;
 
     @Contract(pure = true)
-    @NonNull
+    @Nullable
     TextureView getTextureView() {
         return previewTextureView;
     }
@@ -62,44 +65,56 @@ final public class PreviewHandler {
     }
 
 
-//    public PreviewHandler(@NonNull Surface previewSurface,
-//                          @NonNull Size preferredSize) {
-//        this(previewSurface, preferredSize, null, null);
-//    }
-//
-//    public PreviewHandler(@NonNull Surface previewSurface,
-//                          @NonNull Size preferredSize,
-//                          @Nullable CaptureRequest.Builder previewRequest) {
-//        this(previewSurface, preferredSize, previewRequest, null);
-//    }
-//
-//    public PreviewHandler(@NonNull Surface previewSurface,
-//                          @NonNull Size preferredSize,
-//                          @Nullable CaptureRequest.Builder previewRequest,
-//                          @Nullable Camera3.PreviewSizeCallback previewSizeSelected) {
-//        //noinspection ConstantConditions
-//        if (previewSurface == null) {
-//            throw new IllegalArgumentException("previewSurface cannot be null");
-//        }
-//        //noinspection ConstantConditions
-//        if (preferredSize == null) {
-//            throw new IllegalArgumentException(
-//                    "if a surface is given, a preferred size must be provided");
-//        }
-//        this.previewSurface = previewSurface;
-//        this.previewRequest = previewRequest;
-//        this.previewSizeSelected = previewSizeSelected;
-//    }
+    //Surface constructors
+    public PreviewHandler(@NonNull SurfaceTexture previewSurface,
+                          @NonNull Size preferredSize) {
+        this(previewSurface, preferredSize, null, null);
+    }
 
+    public PreviewHandler(@NonNull SurfaceTexture previewSurface,
+                          @NonNull Size preferredSize,
+                          @Nullable CaptureRequest.Builder previewRequest) {
+        this(previewSurface, preferredSize, previewRequest, null);
+    }
+
+    public PreviewHandler(@NonNull SurfaceTexture previewSurface,
+                          @NonNull Size preferredSize,
+                          @Nullable CaptureRequest.Builder previewRequest,
+                          @Nullable Camera3.PreviewSizeCallback previewSizeSelected) {
+        //noinspection ConstantConditions
+        if (previewSurface == null) {
+            throw new IllegalArgumentException("previewSurface cannot be null");
+        }
+        //noinspection ConstantConditions
+        if (preferredSize == null) {
+            throw new IllegalArgumentException(
+                    "if a surface is given, a preferred size must be provided");
+        }
+        this.previewSurface = previewSurface;
+        this.preferredSize = preferredSize;
+        this.previewRequest = previewRequest;
+        this.previewSizeSelected = previewSizeSelected;
+    }
+
+    //TextureView constructors
+    /**
+     * @see PreviewHandler#PreviewHandler(TextureView, Size, CaptureRequest.Builder)
+     */
     public PreviewHandler(@NonNull TextureView previewTextureView) {
         this(previewTextureView, null, null);
     }
 
+    /**
+     * @see PreviewHandler#PreviewHandler(TextureView, Size, CaptureRequest.Builder)
+     */
     public PreviewHandler(@NonNull TextureView previewTextureView,
                           @Nullable Size preferredSize) {
         this(previewTextureView, preferredSize, null, null);
     }
 
+    /**
+     * @see PreviewHandler#PreviewHandler(TextureView, Size, CaptureRequest.Builder)
+     */
     public PreviewHandler(@NonNull TextureView previewTextureView,
                           @Nullable Size preferredSize,
                           @Nullable CaptureRequest.Builder previewRequest) {
@@ -145,8 +160,25 @@ final public class PreviewHandler {
         return this.previewRequest == null;
     }
 
+    @Contract(pure = true)
+    @NonNull
     public Size getPreferredSize() {
-        return this.preferredSize != null ? this.preferredSize :
-                new Size(previewTextureView.getWidth(), previewTextureView.getHeight());
+        if (this.preferredSize != null) {
+            return this.preferredSize;
+        } else {
+            assert previewTextureView != null;
+            return new Size(previewTextureView.getWidth(), previewTextureView.getHeight());
+        }
+    }
+
+    @Contract(pure = true)
+    @NonNull
+    public SurfaceTexture getSurfaceTexture() {
+        if (previewTextureView != null) {
+            return previewTextureView.getSurfaceTexture();
+        } else {
+            assert previewSurface != null;
+            return previewSurface;
+        }
     }
 }

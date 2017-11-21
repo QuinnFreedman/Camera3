@@ -101,10 +101,14 @@ class PrivateUtils {
     static void configureTransform(@NonNull PreviewHandler previewHandler,
                                    @NonNull Context context,
                                    @NonNull ErrorHandler errorHandler) {
+        if (previewHandler.getTextureView() == null) {
+            errorHandler.info("preview handler is configured with a surface instead of a texture " +
+                    "view so no transform will be configured");
+            return;
+        }
         errorHandler.info("Configuring preview transform matrix...");
         //noinspection ConstantConditions
         if (requireNotNull(previewHandler, "preview session is null when trying to configure preview transform", errorHandler) ||
-            requireNotNull(previewHandler.getTextureView(), "textureView is null when trying to configure preview transform", errorHandler) ||
             requireNotNull(context, "context is null when trying to configure preview transform", errorHandler)
         ) {
             return;
@@ -123,7 +127,7 @@ class PrivateUtils {
         RectF bufferRect = new RectF(0, 0, previewHeight, previewWidth);
         float centerX = viewRect.centerX();
         float centerY = viewRect.centerY();
-        if (Surface.ROTATION_90 == rotation || Surface.ROTATION_270 == rotation) {
+        if (rotation == Surface.ROTATION_90 || rotation == Surface.ROTATION_270) {
             bufferRect.offset(centerX - bufferRect.centerX(), centerY - bufferRect.centerY());
             matrix.setRectToRect(viewRect, bufferRect, Matrix.ScaleToFit.FILL);
             float scale = Math.max(
@@ -131,7 +135,7 @@ class PrivateUtils {
                     (float) viewWidth / previewWidth);
             matrix.postScale(scale, scale, centerX, centerY);
             matrix.postRotate(90 * (rotation - 2), centerX, centerY);
-        } else if (Surface.ROTATION_180 == rotation) {
+        } else if (rotation == Surface.ROTATION_180) {
             matrix.postRotate(180, centerX, centerY);
         }
         previewHandler.getTextureView().setTransform(matrix);
@@ -207,6 +211,7 @@ class PrivateUtils {
         StreamConfigurationMap map = characteristics.get(
                 CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
         if (map == null) {
+            //noinspection SpellCheckingInspection
             errorHandler.error(
                     "CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP was null " +
                             "for the given cameraId",
@@ -221,7 +226,6 @@ class PrivateUtils {
         // Danger, W.R.! Attempting to use too large a preview size could  exceed the camera
         // bus' bandwidth limitation, resulting in gorgeous previews but the storage of
         // garbage capture data.
-        //TODO allow the user to specify a preferred preview aspect ratio and size
         Size optimalSize = chooseOptimalSize(previewSizes,
                 rotatedPreviewWidth, rotatedPreviewHeight, maxPreviewWidth,
                 maxPreviewHeight, /*aspect ratio*/ largestPreviewSize, errorHandler);

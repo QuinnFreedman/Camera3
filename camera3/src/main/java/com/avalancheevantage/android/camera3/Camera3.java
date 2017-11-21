@@ -47,7 +47,6 @@ import org.jetbrains.annotations.Contract;
 
 import java.io.File;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -56,6 +55,8 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
+
+import static java.util.Arrays.asList;
 
 /**
  * Camera3 is a wrapper around the Android Camera2 API. It is an attempt to
@@ -313,7 +314,7 @@ public final class Camera3 {
 
         mErrorHandler.info("starting preview");
 
-        if (session.getPreview() != null) {
+        if (session.getPreview() != null && session.getPreview().getTextureView() != null) {
             TextureView previewTextureView = session.getPreview().getTextureView();
 
             if (previewTextureView.isAvailable()) {
@@ -584,8 +585,8 @@ public final class Camera3 {
             return;
         }
 
-        SurfaceTexture texture = previewHandler.getTextureView().getSurfaceTexture();
-        if (requireNotNull(texture, "previewHandler.getTextureView().getSurfaceTexture() is null")) {
+        SurfaceTexture texture = previewHandler.getSurfaceTexture();
+        if (requireNotNull(texture, "previewHandler.getSurfaceTexture() is null")) {
             return;
         }
 
@@ -604,7 +605,7 @@ public final class Camera3 {
 
 
             // Create a CameraCaptureSession for camera preview.
-            List<Surface> targetSurfaces = new ArrayList<>(Arrays.asList(surface));
+            List<Surface> targetSurfaces = new ArrayList<>(asList(surface));
             targetSurfaces.addAll(getCaptureTargetSurfaces());
 
             Log.d(TAG, "target surfaces == " + targetSurfaces);
@@ -1067,7 +1068,7 @@ public final class Camera3 {
     /* Public Utils */
     public List<String> getAvailableCameras() throws CameraAccessException {
         CameraManager manager = (CameraManager) mContext.getSystemService(Context.CAMERA_SERVICE);
-        return Collections.unmodifiableList(Arrays.asList(manager.getCameraIdList()));
+        return Collections.unmodifiableList(asList(manager.getCameraIdList()));
     }
 
     @Nullable
@@ -1101,7 +1102,7 @@ public final class Camera3 {
             return Collections.emptyList();
         }
         return Collections.unmodifiableCollection(
-                Arrays.asList(map.getOutputSizes(format)));
+                asList(map.getOutputSizes(format)));
     }
 
     public Size getLargestAvailableSize(String cameraId, int imageFormat) {
