@@ -66,17 +66,38 @@ final public class PreviewHandler {
 
 
     //Surface constructors
+    /**
+     * @see PreviewHandler#PreviewHandler(SurfaceTexture, Size, CaptureRequest.Builder, Camera3.PreviewSizeCallback)
+     */
     public PreviewHandler(@NonNull SurfaceTexture previewSurface,
                           @NonNull Size preferredSize) {
         this(previewSurface, preferredSize, null, null);
     }
-
+    /**
+     * @see PreviewHandler#PreviewHandler(SurfaceTexture, Size, CaptureRequest.Builder, Camera3.PreviewSizeCallback)
+     */
     public PreviewHandler(@NonNull SurfaceTexture previewSurface,
                           @NonNull Size preferredSize,
                           @Nullable CaptureRequest.Builder previewRequest) {
         this(previewSurface, preferredSize, previewRequest, null);
     }
 
+    /**
+     * An alternative constructor that allows you to provide a SurfaceTexture instead of a
+     * TextureView. For a normal preview session, you will probably just want to use a TextureView.
+     * However, if you have a special use case, this constructor offers a bit more flexibility.
+     *
+     * @param previewSurface the surface on which to project the preview
+     * @param preferredSize the desired preview size. (required) see {@link
+     * PreviewHandler#PreviewHandler( TextureView, Size, CaptureRequest.Builder,
+     * Camera3.PreviewSizeCallback)}
+     * @param previewRequest see {@link PreviewHandler#PreviewHandler(
+     * TextureView, Size, CaptureRequest.Builder, Camera3.PreviewSizeCallback)}
+     * @param previewSizeSelected see {@link PreviewHandler#PreviewHandler(
+     * TextureView, Size, CaptureRequest.Builder, Camera3.PreviewSizeCallback)}
+     *
+     * @see PreviewHandler#PreviewHandler(TextureView, Size, CaptureRequest.Builder, Camera3.PreviewSizeCallback)
+     */
     public PreviewHandler(@NonNull SurfaceTexture previewSurface,
                           @NonNull Size preferredSize,
                           @Nullable CaptureRequest.Builder previewRequest,
@@ -98,14 +119,14 @@ final public class PreviewHandler {
 
     //TextureView constructors
     /**
-     * @see PreviewHandler#PreviewHandler(TextureView, Size, CaptureRequest.Builder)
+     * @see PreviewHandler#PreviewHandler(TextureView, Size, CaptureRequest.Builder, Camera3.PreviewSizeCallback)
      */
     public PreviewHandler(@NonNull TextureView previewTextureView) {
         this(previewTextureView, null, null);
     }
 
     /**
-     * @see PreviewHandler#PreviewHandler(TextureView, Size, CaptureRequest.Builder)
+     * @see PreviewHandler#PreviewHandler(TextureView, Size, CaptureRequest.Builder, Camera3.PreviewSizeCallback)
      */
     public PreviewHandler(@NonNull TextureView previewTextureView,
                           @Nullable Size preferredSize) {
@@ -113,7 +134,7 @@ final public class PreviewHandler {
     }
 
     /**
-     * @see PreviewHandler#PreviewHandler(TextureView, Size, CaptureRequest.Builder)
+     * @see PreviewHandler#PreviewHandler(TextureView, Size, CaptureRequest.Builder, Camera3.PreviewSizeCallback)
      */
     public PreviewHandler(@NonNull TextureView previewTextureView,
                           @Nullable Size preferredSize,
