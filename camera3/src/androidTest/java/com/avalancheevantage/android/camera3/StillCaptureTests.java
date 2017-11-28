@@ -86,6 +86,10 @@ public class StillCaptureTests {
         waiter.await(5, SECONDS);
     }
 
+    /**
+     * This test crashes sometimes due to threading issues when multiple tests run at once
+     * However, it will always pass when run on its own
+     */
     @Test
     public void pauseResume() throws Exception {
         final Context appContext = InstrumentationRegistry.getTargetContext();
@@ -169,7 +173,7 @@ public class StillCaptureTests {
                 });
 
 
-        waiter.await(5, SECONDS);
+        waiter.await(8, SECONDS);
         Assert.assertTrue(errorHandler.gotWarning());
     }
 

@@ -14,15 +14,15 @@ class ImageCaptureRequest {
     @NonNull
     private final StillCaptureHandler session;
     @Nullable
-    private final ImageCaptureRequestConfiguration precapture;
+    private final CaptureRequestConfiguration precapture;
     @NonNull
-    private final ImageCaptureRequestConfiguration capture;
+    private final CaptureRequestConfiguration capture;
     @NonNull
     private ErrorHandler errorHandler;
 
     ImageCaptureRequest(@NonNull StillCaptureHandler session,
-                        @Nullable ImageCaptureRequestConfiguration precapture,
-                        @NonNull ImageCaptureRequestConfiguration capture,
+                        @Nullable CaptureRequestConfiguration precapture,
+                        @NonNull CaptureRequestConfiguration capture,
                         @NonNull ErrorHandler errorHandler) {
 
         this.session = session;

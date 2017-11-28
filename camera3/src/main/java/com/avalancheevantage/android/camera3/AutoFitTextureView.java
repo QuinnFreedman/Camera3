@@ -15,6 +15,7 @@
 package com.avalancheevantage.android.camera3;
 
 import android.content.Context;
+import android.graphics.drawable.Drawable;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.TextureView;
@@ -106,6 +107,11 @@ public class AutoFitTextureView extends TextureView {
                 }
             }
         }
+    }
+    @Override
+    public void setBackgroundDrawable(Drawable background) {
+        //Required for code to compile but unable to set the background
+        return;
     }
 
 }

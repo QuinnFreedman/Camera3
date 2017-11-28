@@ -50,7 +50,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-import java.util.Objects;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.Semaphore;
@@ -84,13 +83,13 @@ public final class Camera3 {
     private Runnable mOnSessionStartedCallback;
 
 
-    private enum CameraState {
+    public enum CameraState {
         //Waiting for the camera to open
         WAITING_CAMERA_OPEN,
         //Showing camera preview
         PREVIEW,
         //Waiting for the focus to be locked.
-        WAITING_LOCK,
+        WAITING_FOCUS_LOCK,
         //Waiting for the exposure to be precapture state
         WAITING_PRECAPTURE,
         //Waiting for the exposure state to be something other than precapture
@@ -136,9 +135,11 @@ public final class Camera3 {
     private ErrorHandler mErrorHandler;
     private CaptureRequest mPreviewRequest;
     private boolean mStarted = false;
+    @Nullable
+    private CaptureResultListener mCaptureResultListener = null;
 
-    public static final ImageCaptureRequestConfiguration PRECAPTURE_CONFIG_TRIGGER_AUTO_FOCUS =
-            new ImageCaptureRequestConfiguration() {
+    public static final CaptureRequestConfiguration PRECAPTURE_CONFIG_TRIGGER_AUTO_FOCUS =
+            new CaptureRequestConfiguration() {
                 @Override
                 public void configure(CaptureRequest.Builder request) {
                     // This is how to tell the camera to trigger auto exposure.
@@ -146,9 +147,9 @@ public final class Camera3 {
                             CaptureRequest.CONTROL_AE_PRECAPTURE_TRIGGER_START);
                 }
             };
-    public static final ImageCaptureRequestConfiguration PRECAPTURE_CONFIG_NONE = null;
-    public static final ImageCaptureRequestConfiguration CAPTURE_CONFIG_DEFAULT =
-            new ImageCaptureRequestConfiguration() {
+    public static final CaptureRequestConfiguration PRECAPTURE_CONFIG_NONE = null;
+    public static final CaptureRequestConfiguration CAPTURE_CONFIG_DEFAULT =
+            new CaptureRequestConfiguration() {
                 @Override
                 public void configure(CaptureRequest.Builder request) {
 
@@ -310,6 +311,9 @@ public final class Camera3 {
         startBackgroundThread();
         for (StillCaptureHandler imageCaptureSession : session.getStillCaptures()) {
             imageCaptureSession.initialize(mBackgroundHandler, this);
+            if (!imageCaptureSession.getImageReader().getSurface().isValid()) {
+                mErrorHandler.warning("Internal Error: Image capture surface is not valid");
+            }
         }
 
         mErrorHandler.info("starting preview");
@@ -351,6 +355,19 @@ public final class Camera3 {
     }
 
     /**
+     * Registers a listener to be updated whenever Camera3 gets a result from the camera. This is
+     * useful for keeping track of what state the camera is in (e.g. if you want to play a sound
+     * when the capture is completed). Note: this is <b>NOT</b> the way you receive the result of
+     * the capture (i.e. an image). For that, use the {@link OnImageAvailableListener} in
+     * {@link StillCaptureHandler#StillCaptureHandler(int, Size, OnImageAvailableListener)}
+     *
+     * @param listener the listener to register or {@code null} to stop listening
+     */
+    public void setCaptureResultListener(@Nullable final CaptureResultListener listener) {
+        mCaptureResultListener = listener;
+    }
+
+    /**
      * Starts the process of capturing a still image from the camera. Should be called after calling
      * {@link Camera3#startCaptureSession(String, PreviewHandler, List)}
      *
@@ -366,19 +383,24 @@ public final class Camera3 {
      *                   configuration at all.
      */
     public void captureImage(@NonNull StillCaptureHandler handler,
-                             @Nullable ImageCaptureRequestConfiguration precapture,
-                             @NonNull ImageCaptureRequestConfiguration capture) {
+                             @Nullable CaptureRequestConfiguration precapture,
+                             @NonNull CaptureRequestConfiguration capture) {
         try {
             //TODO make capture nullable to be consistent with precapture
             if (!this.mStarted) {
                 throw new IllegalStateException("trying to call captureImage(...) " +
                         "but a capture handler has not been started yet");
             }
-            Objects.requireNonNull(handler, "capture handler is null");
 
-            if (requireNotNull(mSession,
+            if (requireNotNull(handler, "capture handler is null") ||
+                requireNotNull(handler.getImageReader(), "capture handler imageReader is null") ||
+                requireNotNull(mSession,
                     "Internal error: Somehow the session is null even though started is true")) {
                 return;
+            }
+
+            if (!handler.getImageReader().getSurface().isValid()) {
+                mErrorHandler.warning("Internal Error: The provided handler's surface is invalid");
             }
 
             if (!mSession.getStillCaptures().contains(handler)) {
@@ -595,12 +617,15 @@ public final class Camera3 {
 
         // This is the output Surface we need to start preview.
         Surface surface = new Surface(texture);
+        if (!surface.isValid()) {
+            mErrorHandler.warning("Internal Error: preview surface is not valid");
+        }
 
         try {
             // We set up a CaptureRequest.Builder with the output Surface.
-            mPreviewRequestBuilder = previewHandler.getPreviewRequest() == null ?
-                    mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW) :
-                    previewHandler.getPreviewRequest();
+            mPreviewRequestBuilder =
+                    mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
+            previewHandler.configureCaptureRequest(mPreviewRequestBuilder);
             mPreviewRequestBuilder.addTarget(surface);
 
 
@@ -622,7 +647,7 @@ public final class Camera3 {
                             // When the session is ready, we start displaying the preview.
                             mCaptureSession = cameraCaptureSession;
                             try {
-                                //previewHandler.getPreviewRequest() will never be null at this point
+                                //previewHandler.getRequestConfig() will never be null at this point
                                 if (!previewHandler.usesCustomRequest()) {
                                     // Auto focus should be continuous for camera preview.
                                     mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_MODE,
@@ -705,6 +730,9 @@ public final class Camera3 {
                 mErrorHandler.error("a StillCaptureHandler has a null ImageReader", null);
                 continue;
             }
+            if (!captureHandler.getImageReader().getSurface().isValid()) {
+                mErrorHandler.warning("Internal Error: a StillCaptureHandler has an invalid surface");
+            }
             targetSurfaces.add(captureHandler.getImageReader().getSurface());
         }
         return targetSurfaces;
@@ -721,7 +749,7 @@ public final class Camera3 {
                     CameraMetadata.CONTROL_AF_TRIGGER_START);
 
             // Tell #mCaptureCallback to wait for the lock.
-            mState = CameraState.WAITING_LOCK;
+            mState = CameraState.WAITING_FOCUS_LOCK;
 
             mCaptureSession.capture(mPreviewRequestBuilder.build(), mCaptureCallback,
                     mBackgroundHandler);
@@ -887,8 +915,8 @@ public final class Camera3 {
             = new CameraCaptureSession.CaptureCallback() {
 
         private void process(CaptureResult result) {
+            CameraState oldState = mState;
             try {
-
                 if (mState != CameraState.PREVIEW) {
                     mErrorHandler.info("Processing capture result. (State: " + mState.name() + ")");
                 }
@@ -898,7 +926,7 @@ public final class Camera3 {
                         //do nothing
                         break;
                     }
-                    case WAITING_LOCK: {
+                    case WAITING_FOCUS_LOCK: {
                         Integer afState = result.get(CaptureResult.CONTROL_AF_STATE);
                         if (afState == null) {
                             mErrorHandler.info("AF State was null, moving to capture image");
@@ -965,6 +993,15 @@ public final class Camera3 {
             } catch (Exception e) {
                 reportUnknownException(e);
             }
+
+            try {
+                if (mCaptureResultListener != null) {
+                    mCaptureResultListener.onResult(oldState, result);
+                }
+            } catch (Exception e) {
+                mErrorHandler.error("Error in CaptureResultListener callback", e);
+            }
+
         }
 
         @Override

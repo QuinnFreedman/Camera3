@@ -26,7 +26,7 @@ final public class PreviewHandler {
     @Nullable
     private TextureView previewTextureView = null;
     @Nullable
-    private final CaptureRequest.Builder previewRequest;
+    private final CaptureRequestConfiguration requestConfig;
     @Nullable
     private final Camera3.PreviewSizeCallback previewSizeSelected;
     @Nullable
@@ -43,10 +43,10 @@ final public class PreviewHandler {
         return previewTextureView;
     }
 
-    @Contract(pure = true)
-    @Nullable
-    CaptureRequest.Builder getPreviewRequest() {
-        return previewRequest;
+    void configureCaptureRequest(CaptureRequest.Builder request) {
+        if (this.requestConfig != null) {
+            this.requestConfig.configure(request);
+        }
     }
 
     @Contract(pure = true)
@@ -67,19 +67,19 @@ final public class PreviewHandler {
 
     //Surface constructors
     /**
-     * @see PreviewHandler#PreviewHandler(SurfaceTexture, Size, CaptureRequest.Builder, Camera3.PreviewSizeCallback)
+     * @see PreviewHandler#PreviewHandler(SurfaceTexture, Size, CaptureRequestConfiguration, Camera3.PreviewSizeCallback)
      */
     public PreviewHandler(@NonNull SurfaceTexture previewSurface,
                           @NonNull Size preferredSize) {
         this(previewSurface, preferredSize, null, null);
     }
     /**
-     * @see PreviewHandler#PreviewHandler(SurfaceTexture, Size, CaptureRequest.Builder, Camera3.PreviewSizeCallback)
+     * @see PreviewHandler#PreviewHandler(SurfaceTexture, Size, CaptureRequestConfiguration, Camera3.PreviewSizeCallback)
      */
     public PreviewHandler(@NonNull SurfaceTexture previewSurface,
                           @NonNull Size preferredSize,
-                          @Nullable CaptureRequest.Builder previewRequest) {
-        this(previewSurface, preferredSize, previewRequest, null);
+                          @Nullable CaptureRequestConfiguration requestConfig) {
+        this(previewSurface, preferredSize, requestConfig, null);
     }
 
     /**
@@ -89,18 +89,18 @@ final public class PreviewHandler {
      *
      * @param previewSurface the surface on which to project the preview
      * @param preferredSize the desired preview size. (required) see {@link
-     * PreviewHandler#PreviewHandler( TextureView, Size, CaptureRequest.Builder,
+     * PreviewHandler#PreviewHandler( TextureView, Size, CaptureRequestConfiguration,
      * Camera3.PreviewSizeCallback)}
-     * @param previewRequest see {@link PreviewHandler#PreviewHandler(
-     * TextureView, Size, CaptureRequest.Builder, Camera3.PreviewSizeCallback)}
+     * @param requestConfig see {@link PreviewHandler#PreviewHandler(
+     * TextureView, Size, CaptureRequestConfiguration, Camera3.PreviewSizeCallback)}
      * @param previewSizeSelected see {@link PreviewHandler#PreviewHandler(
-     * TextureView, Size, CaptureRequest.Builder, Camera3.PreviewSizeCallback)}
+     * TextureView, Size, CaptureRequestConfiguration, Camera3.PreviewSizeCallback)}
      *
-     * @see PreviewHandler#PreviewHandler(TextureView, Size, CaptureRequest.Builder, Camera3.PreviewSizeCallback)
+     * @see PreviewHandler#PreviewHandler(TextureView, Size, CaptureRequestConfiguration, Camera3.PreviewSizeCallback)
      */
     public PreviewHandler(@NonNull SurfaceTexture previewSurface,
                           @NonNull Size preferredSize,
-                          @Nullable CaptureRequest.Builder previewRequest,
+                          @Nullable CaptureRequestConfiguration requestConfig,
                           @Nullable Camera3.PreviewSizeCallback previewSizeSelected) {
         //noinspection ConstantConditions
         if (previewSurface == null) {
@@ -113,20 +113,22 @@ final public class PreviewHandler {
         }
         this.previewSurface = previewSurface;
         this.preferredSize = preferredSize;
-        this.previewRequest = previewRequest;
+        this.requestConfig = requestConfig;
         this.previewSizeSelected = previewSizeSelected;
     }
 
     //TextureView constructors
     /**
-     * @see PreviewHandler#PreviewHandler(TextureView, Size, CaptureRequest.Builder, Camera3.PreviewSizeCallback)
+     * @see PreviewHandler#PreviewHandler(TextureView, Size, CaptureRequestConfiguration,
+     * Camera3.PreviewSizeCallback)
      */
     public PreviewHandler(@NonNull TextureView previewTextureView) {
         this(previewTextureView, null, null);
     }
 
     /**
-     * @see PreviewHandler#PreviewHandler(TextureView, Size, CaptureRequest.Builder, Camera3.PreviewSizeCallback)
+     * @see PreviewHandler#PreviewHandler(TextureView, Size, CaptureRequestConfiguration,
+     * Camera3.PreviewSizeCallback)
      */
     public PreviewHandler(@NonNull TextureView previewTextureView,
                           @Nullable Size preferredSize) {
@@ -134,12 +136,13 @@ final public class PreviewHandler {
     }
 
     /**
-     * @see PreviewHandler#PreviewHandler(TextureView, Size, CaptureRequest.Builder, Camera3.PreviewSizeCallback)
+     * @see PreviewHandler#PreviewHandler(TextureView, Size, CaptureRequestConfiguration,
+     * Camera3.PreviewSizeCallback)
      */
     public PreviewHandler(@NonNull TextureView previewTextureView,
                           @Nullable Size preferredSize,
-                          @Nullable CaptureRequest.Builder previewRequest) {
-        this(previewTextureView, preferredSize, previewRequest, null);
+                          @Nullable CaptureRequestConfiguration requestConfig) {
+        this(previewTextureView, preferredSize, requestConfig, null);
     }
 
     /**
@@ -149,11 +152,12 @@ final public class PreviewHandler {
      *                      and pick a size form the list of available camera sizes. See {@link
      *                      Camera3#getAvailableSizes(String, int)}. If <code>null</code>, the size
      *                      of {@code previewTextureView} will be used.
-     * @param previewRequest an optional custom previewRequest. This request should be expressed in
-     *                       terms of a Camera2 {@link CaptureRequest.Builder}. The Builder should
-     *                       be configured with your custom parameters, but you do not need to add a
-     *                       target or build it. If <code>null</code>,
-     *                       {@link CameraDevice#TEMPLATE_PREVIEW} is used.
+     * @param requestConfig an optional custom configuration for the preview request. This allows
+     *                      you to specify custom attributes for the request like focus and
+     *                      exposure. Defaults are given by {@link CameraDevice#TEMPLATE_PREVIEW}.
+     *                      If {@code null}, the defaults are not altered. You should not specify a
+     *                      target for the builder or build it. See
+     *                      {@link CaptureRequestConfiguration} for more information.
      * @param previewSizeSelected an optional callback if you want to be notified when an actual
      *                            preview size is chosen (based on {@code preferredSize} or the
      *                            size of {@code previewTextureView}). This can be useful if you
@@ -164,7 +168,7 @@ final public class PreviewHandler {
      */
     public PreviewHandler(@NonNull TextureView previewTextureView,
                           @Nullable Size preferredSize,
-                          @Nullable CaptureRequest.Builder previewRequest,
+                          @Nullable CaptureRequestConfiguration requestConfig,
                           @Nullable Camera3.PreviewSizeCallback previewSizeSelected) {
         //noinspection ConstantConditions
         if (previewTextureView == null) {
@@ -172,13 +176,13 @@ final public class PreviewHandler {
         }
         this.preferredSize = preferredSize;
         this.previewTextureView = previewTextureView;
-        this.previewRequest = previewRequest;
+        this.requestConfig = requestConfig;
         this.previewSizeSelected = previewSizeSelected;
     }
 
     @Contract(pure = true)
     boolean usesCustomRequest() {
-        return this.previewRequest == null;
+        return this.requestConfig == null;
     }
 
     @Contract(pure = true)
