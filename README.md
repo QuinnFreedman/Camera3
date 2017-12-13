@@ -8,7 +8,7 @@ repositories {
     jcenter()
 }
 ```
-in your `build.gradle` and then add the following in your dependencies
+in your `build.gradle` and then add the following in your dependencies:
 ```groovy
 compile 'com.avalancheevantage.android:camera3:0.1.0'
 ```
