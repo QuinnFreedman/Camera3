@@ -30,7 +30,7 @@ Despite all this power, using Camera3 can be done in just a handful of lines.
 
 In Camera3, you specify all your parameters up front, then send a request. Camera3 handles all the back-and-forth behind the scenes and then notifies you when it has a result. Start a session like this:
 
-```
+```java
 Camera3 camera = new Camera3(this, Camera3.ERROR_HANDLER_DEFAULT);
 
 //...
