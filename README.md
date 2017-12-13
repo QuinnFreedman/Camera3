@@ -1,6 +1,6 @@
-# Camera3
+![Camera 3](images/Camera3.png)
 
-**Camera3** is a wrapper around the [Android Camera2 API](https://developer.android.com/reference/android/hardware/camera2/package-summary.html). It aims to provide a simpler, safer interface to the underlying power of Camera2.
+**Camera3** is a wrapper around the notoriously difficult [Android Camera2 API](https://developer.android.com/reference/android/hardware/camera2/package-summary.html). It aims to provide a simpler, safer interface to the underlying power of Camera2.
 
 Camera3 was just added to jcenter. To use it, make user you have 
 ```
