@@ -12,7 +12,7 @@ import android.util.Size;
 
 import net.jodah.concurrentunit.Waiter;
 
-import org.junit.Assert;
+import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -22,6 +22,8 @@ import java.util.Collections;
 import java.util.concurrent.TimeoutException;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 /**
  * Created by Quinn Freedman on 11/10/2017.
@@ -33,6 +35,13 @@ public class StillCaptureTests {
     @Rule
     public GrantPermissionRule permissionRule =
             GrantPermissionRule.grant(Manifest.permission.CAMERA);
+
+    // Sometimes if these tests run too close to each other they will crash.
+    // I should figure out why but for now this fixes it
+    @Before
+    public void before() throws Exception {
+        Thread.sleep(1000);
+    }
 
     @Test
     public void startStillCaptureSession() throws Exception {
@@ -129,7 +138,7 @@ public class StillCaptureTests {
 
 
         waiter.await(5, SECONDS);
-        Assert.assertTrue(errorHandler.gotWarning());
+        assertTrue(errorHandler.gotWarning());
     }
 
     @Test
@@ -174,7 +183,7 @@ public class StillCaptureTests {
 
 
         waiter.await(8, SECONDS);
-        Assert.assertTrue(errorHandler.gotWarning());
+        assertTrue(errorHandler.gotWarning());
     }
 
     @Test
@@ -253,7 +262,7 @@ public class StillCaptureTests {
                 });
 
         master.await(10, SECONDS);
-        Assert.assertEquals(NUM_IMAGES, imagesCaptured[0]);
+        assertEquals(NUM_IMAGES, imagesCaptured[0]);
     }
 
     @Test
@@ -290,6 +299,6 @@ public class StillCaptureTests {
         }
 
         waiter.await();
-        Assert.assertEquals(NUM_IMAGES, imagesCaptured[0]);
+        assertEquals(NUM_IMAGES, imagesCaptured[0]);
     }
 }
