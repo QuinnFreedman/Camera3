@@ -2,13 +2,13 @@
 
 **Camera3** is a wrapper around the notoriously difficult [Android Camera2 API](https://developer.android.com/reference/android/hardware/camera2/package-summary.html). It aims to provide a simpler, safer interface to the underlying power of Camera2.
 
-Camera3 is available on jcenter. To use it, make user you have 
+Camera3 is available on jcenter. To use it, make sure you have 
 ```groovy
 repositories {
     jcenter()
 }
 ```
-in your `build.gradle` and then add the following dependency
+in your `build.gradle` and then add the following in your dependencies:
 ```groovy
 compile 'com.avalancheevantage.android:camera3:0.1.0'
 ```
