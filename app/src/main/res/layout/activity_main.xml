@@ -42,6 +42,12 @@
             android:layout_height="wrap_content"
             android:text="@string/capture" />
 
+        <Button
+            android:id="@+id/video"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Start Recording"/>
+
     </LinearLayout>
 
     <Switch

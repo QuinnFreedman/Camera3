@@ -12,6 +12,7 @@ import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.util.Size;
 import android.view.View;
+import android.widget.Button;
 import android.widget.CompoundButton;
 import android.widget.Switch;
 import android.widget.Toast;
@@ -21,6 +22,7 @@ import com.avalancheevantage.android.camera3.Camera3;
 import com.avalancheevantage.android.camera3.OnImageAvailableListener;
 import com.avalancheevantage.android.camera3.PreviewHandler;
 import com.avalancheevantage.android.camera3.StillCaptureHandler;
+import com.avalancheevantage.android.camera3.VideoCaptureHandler;
 
 import java.util.Collections;
 
@@ -82,7 +84,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void onPermissionGranted() {
         Log.d(TAG, "onPermissionGranted");
-        String cameraId;
+        final String cameraId;
         try {
             cameraId = cameraManager.getAvailableCameras().get(0);
         } catch (CameraAccessException e) {
@@ -130,8 +132,11 @@ public class MainActivity extends AppCompatActivity {
 //                                }
                             }
                         });
+
+        final VideoCaptureHandler videoSession = new VideoCaptureHandler(new Size(400, 300));
+
         cameraManager.startCaptureSession(cameraId, mShowPreview ? previewHandler : null,
-                Collections.singletonList(captureSession));
+                Collections.singletonList(captureSession), Collections.singletonList(videoSession));
         findViewById(R.id.capture).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -140,7 +145,23 @@ public class MainActivity extends AppCompatActivity {
                         Camera3.CAPTURE_CONFIG_DEFAULT);
             }
         });
+
+        final Button videoButton = findViewById(R.id.video);
+        videoButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                recordingVideo = !recordingVideo;
+                videoButton.setText(recordingVideo ? "Stop Recording" : "Start Recording");
+                if (recordingVideo) {
+                    cameraManager.startVideoCapture(videoSession);
+                } else {
+                    //TODO stop capture
+                }
+            }
+        });
     }
+
+    private boolean recordingVideo = false;
 
     @Override
     protected void onPause() {

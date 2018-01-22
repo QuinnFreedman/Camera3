@@ -83,7 +83,7 @@ public class StillCaptureTests {
         });
 
         camera.startCaptureSession(cameraId, null, Arrays.asList(cs),
-                new Runnable() {
+                null, new Runnable() {
                     @Override
                     public void run() {
                         camera.captureImage(cs, Camera3.PRECAPTURE_CONFIG_NONE,
@@ -122,7 +122,7 @@ public class StillCaptureTests {
         });
 
         camera.startCaptureSession(cameraId, null, Collections.singletonList(cs),
-                new Runnable() {
+                null, new Runnable() {
                     @Override
                     public void run() {
                         camera.pause();
@@ -165,13 +165,13 @@ public class StillCaptureTests {
         });
 
         camera.startCaptureSession(cameraId, null, Arrays.asList(cs),
-                new Runnable() {
+                null, new Runnable() {
                     @Override
                     public void run() {
                         camera.pause();
                         camera.startCaptureSession(cameraId, null,
                                 Collections.singletonList(cs),
-                                new Runnable() {
+                                null, new Runnable() {
                                     @Override
                                     public void run() {
                                         camera.captureImage(cs, Camera3.PRECAPTURE_CONFIG_NONE,
@@ -238,7 +238,7 @@ public class StillCaptureTests {
         });
 
         camera.startCaptureSession(cameraId, null, Collections.singletonList(cs),
-                new Runnable() {
+                null, new Runnable() {
                     @Override
                     public void run() {
                         new Thread(new Runnable() {

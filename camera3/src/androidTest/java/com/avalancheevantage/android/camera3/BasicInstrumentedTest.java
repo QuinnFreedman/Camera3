@@ -88,7 +88,7 @@ public class BasicInstrumentedTest {
                 });
 
         camera3.startCaptureSession(cameraId, null, Arrays.asList(cs),
-                new Runnable() {
+                null, new Runnable() {
                     @Override
                     public void run() {
                         waiter.resume();

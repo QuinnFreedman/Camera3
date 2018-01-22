@@ -93,7 +93,14 @@ public final class Camera3 {
         //Waiting for the exposure to be precapture state
         WAITING_PRECAPTURE,
         //Waiting for the exposure state to be something other than precapture
-        WAITING_NON_PRECAPTURE
+        WAITING_NON_PRECAPTURE,
+        //Recording video. May also be showing preview
+        RECORDING_VIDEO
+    }
+
+    @Contract(pure = true)
+    private boolean isRecordingVideo() {
+        return mState == CameraState.RECORDING_VIDEO;
     }
 
     /**
@@ -217,12 +224,22 @@ public final class Camera3 {
     }
 
     /**
-     * @see Camera3#startCaptureSession(String, PreviewHandler, List, Runnable)
+     * @see Camera3#startCaptureSession(String, PreviewHandler, List, List, Runnable)
      */
     public void startCaptureSession(@NonNull String cameraId,
                                     @Nullable PreviewHandler previewHandler,
                                     @Nullable List<StillCaptureHandler> stillCaptureSessions) {
-        startCaptureSession(cameraId, previewHandler, stillCaptureSessions, null);
+        startCaptureSession(cameraId, previewHandler, stillCaptureSessions, null, null);
+    }
+    /**
+     * @see Camera3#startCaptureSession(String, PreviewHandler, List, List, Runnable)
+     */
+    public void startCaptureSession(@NonNull String cameraId,
+                                    @Nullable PreviewHandler previewHandler,
+                                    @Nullable List<StillCaptureHandler> stillCaptureSessions,
+                                    @Nullable List<VideoCaptureHandler> videoCaptureHandlers) {
+        startCaptureSession(cameraId, previewHandler, stillCaptureSessions,
+                videoCaptureHandlers, null);
     }
 
     /**
@@ -231,9 +248,10 @@ public final class Camera3 {
      * @param cameraId             which camera to use (from {@link Camera3#getAvailableCameras()}).
      * @param previewHandler       an object representing the configuration for the camera preview, or
      *                             <code>null</code> to not show a preview (see {@link PreviewHandler}).
-     * @param stillCaptureSessions a list of zero or more {@link StillCaptureHandler}'s,
+     * @param stillCaptureHandlers a list of zero or more {@link StillCaptureHandler}'s,
      *                             or null if no still images will be captured. Usually only one
      *                             is required.
+     * @param videoCaptureHandlers
      * @param onSessionStarted     an optional callback that will be called to notify the user when
      *                             the camera has been opened and the capture session has been
      *                             started.
@@ -242,7 +260,8 @@ public final class Camera3 {
      */
     public void startCaptureSession(@NonNull String cameraId,
                                     @Nullable PreviewHandler previewHandler,
-                                    @Nullable List<StillCaptureHandler> stillCaptureSessions,
+                                    @Nullable List<StillCaptureHandler> stillCaptureHandlers,
+                                    @Nullable List<VideoCaptureHandler> videoCaptureHandlers,
                                     @Nullable Runnable onSessionStarted) {
         try {
             //noinspection ConstantConditions
@@ -256,16 +275,19 @@ public final class Camera3 {
                 pause();
             }
 
-            if (stillCaptureSessions == null) {
-                stillCaptureSessions = new ArrayList<>();
+            if (stillCaptureHandlers == null) {
+                stillCaptureHandlers = new ArrayList<>();
+            }
+            if (videoCaptureHandlers == null) {
+                videoCaptureHandlers = new ArrayList<>();
             }
 
-            if (previewHandler == null && stillCaptureSessions.isEmpty()) {
-                throw new IllegalArgumentException(
-                        "previewHandler is null and stillCaptureSessions is null or empty; " +
-                                "no targets for capture session");
+            if (previewHandler == null && stillCaptureHandlers.isEmpty()
+                    && videoCaptureHandlers.isEmpty()) {
+                throw new IllegalArgumentException("no targets provided for capture session");
             }
-            mSession = new Session(cameraId, previewHandler, stillCaptureSessions);
+            mSession = new Session(cameraId, previewHandler,
+                    stillCaptureHandlers, videoCaptureHandlers);
             mOnSessionStartedCallback = onSessionStarted;
             startCaptureSession(mSession);
         } catch (Exception e) {
@@ -314,6 +336,10 @@ public final class Camera3 {
             if (!imageCaptureSession.getImageReader().getSurface().isValid()) {
                 mErrorHandler.warning("Internal Error: Image capture surface is not valid");
             }
+        }
+
+        for (VideoCaptureHandler videoHandler : session.videoCaptureHandlers) {
+            videoHandler.setErrorHandler(mErrorHandler);
         }
 
         mErrorHandler.info("starting preview");
@@ -365,6 +391,83 @@ public final class Camera3 {
      */
     public void setCaptureResultListener(@Nullable final CaptureResultListener listener) {
         mCaptureResultListener = listener;
+    }
+
+    /**
+     * TODO doc
+     */
+    public void startVideoCapture(@NonNull final VideoCaptureHandler handler) {
+        if (requireNotNull(handler, "VideoCaptureHandler cannot be null") ||
+            requireNotNull(mSession, "Trying to start video capture when session is null")) {
+            return;
+        }
+
+        if (!mSession.getVideoCaptures().contains(handler)) {
+            mErrorHandler.error(
+                    "VideoCaptureHandler is not configured with the current camera session",
+                    null);
+            return;
+        }
+
+        //close preview
+        if (mCaptureSession != null) {
+            mCaptureSession.close();
+            mCaptureSession = null;
+        }
+
+        int rotation = PrivateUtils.getScreenRotation(mContext, mErrorHandler);
+        handler.setUpMediaRecorder("TODO", mSensorOrientation, rotation);
+
+        List<Surface> surfaces = new ArrayList<>();
+
+        PreviewHandler previewHandler = mSession.getPreview();
+
+        if (previewHandler != null) {
+            SurfaceTexture previewTexture = previewHandler.getSurfaceTexture();
+
+            Size previewSize = previewHandler.getPreviewSize();
+            previewTexture.setDefaultBufferSize(previewSize.getWidth(), previewSize.getHeight());
+
+            Surface previewSurface = new Surface(previewTexture);
+            surfaces.add(previewSurface);
+            //TODO previewRequestBuilder might already have target?
+            mPreviewRequestBuilder.addTarget(previewSurface);
+        }
+
+        Surface recorderSurface = handler.getRecorderSurface();
+        surfaces.add(recorderSurface);
+        mPreviewRequestBuilder.addTarget(recorderSurface);
+
+        try {
+            mCameraDevice.createCaptureSession(surfaces, new CameraCaptureSession.StateCallback() {
+                @Override
+                public void onConfigured(@NonNull CameraCaptureSession cameraCaptureSession) {
+                    if (mSession.getPreview() != null) {
+                        mCaptureSession = cameraCaptureSession;
+                    }
+                    handler.start();
+                }
+
+                @Override
+                public void onConfigureFailed(@NonNull CameraCaptureSession cameraCaptureSession) {
+                    mErrorHandler.error("Failed to configure video capture session", null);
+                }
+            }, mBackgroundHandler);
+        } catch (CameraAccessException e) {
+            reportCameraAccessException(e);
+        }
+    }
+
+    private void stopVideoCapture(@NonNull VideoCaptureHandler handler) {
+        try {
+            handler.stop();
+        } catch (IllegalStateException e) {
+            mErrorHandler.error("Video already stopped", e);
+        }
+
+
+        //TODO
+//        startPreview();
     }
 
     /**
@@ -464,7 +567,7 @@ public final class Camera3 {
 
     /**
      * It is only safe to call {@link Camera3#resume()} if you have already configured a capture
-     * session with {@link Camera3#startCaptureSession(String, PreviewHandler, List, Runnable)}.
+     * session with {@link Camera3#startCaptureSession(String, PreviewHandler, List, List, Runnable)}.
      * This method allows you to check that status.
      *
      * @return true if this instance of camera3 is configured with a capture session
@@ -476,7 +579,7 @@ public final class Camera3 {
 
     /**
      * Images can only be captured between calling {@link Camera3#resume()} or
-     * {@link Camera3#startCaptureSession(String, PreviewHandler, List, Runnable)} and calling
+     * {@link Camera3#startCaptureSession(String, PreviewHandler, List, List, Runnable)} and calling
      * {@link Camera3#pause()}. This method allows you to check whether the camera can receive
      * requests. If this is false, you can call {@link Camera3#resume()}.
      *
@@ -1191,6 +1294,8 @@ public final class Camera3 {
         private final PreviewHandler previewHandler;
         @NonNull
         private final List<StillCaptureHandler> stillCaptureHandlers;
+        @NonNull
+        private final List<VideoCaptureHandler> videoCaptureHandlers;
 
         @Contract(pure = true)
         @NonNull
@@ -1210,12 +1315,20 @@ public final class Camera3 {
             return stillCaptureHandlers;
         }
 
+        @Contract(pure = true)
+        @NonNull
+        List<VideoCaptureHandler> getVideoCaptures() {
+            return videoCaptureHandlers;
+        }
+
         Session(@NonNull String cameraId,
                 @Nullable PreviewHandler previewHandler,
-                @NonNull List<StillCaptureHandler> stillCaptureHandlers) {
+                @NonNull List<StillCaptureHandler> stillCaptureHandlers,
+                @NonNull List<VideoCaptureHandler> videoCaptureHandlers) {
             this.cameraId = cameraId;
             this.previewHandler = previewHandler;
             this.stillCaptureHandlers = stillCaptureHandlers;
+            this.videoCaptureHandlers = videoCaptureHandlers;
         }
     }
 }
