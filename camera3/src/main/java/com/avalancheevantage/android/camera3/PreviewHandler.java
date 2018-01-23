@@ -150,7 +150,7 @@ final public class PreviewHandler {
      * @param preferredSize (optional) the preferred resolution for the preview. There is no grantee
      *                      that this size will be used. Camera3 take this preference into account
      *                      and pick a size form the list of available camera sizes. See {@link
-     *                      Camera3#getAvailableSizes(String, int)}. If <code>null</code>, the size
+     *                      Camera3#getAvailableImageSizes(String, int)}. If <code>null</code>, the size
      *                      of {@code previewTextureView} will be used.
      * @param requestConfig an optional custom configuration for the preview request. This allows
      *                      you to specify custom attributes for the request like focus and

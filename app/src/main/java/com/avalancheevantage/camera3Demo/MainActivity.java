@@ -1,6 +1,7 @@
 package com.avalancheevantage.camera3Demo;
 
 import android.Manifest;
+import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.graphics.ImageFormat;
 import android.hardware.camera2.CameraAccessException;
@@ -51,10 +52,12 @@ public class MainActivity extends AppCompatActivity {
             Log.d(TAG, "already started");
             return;
         }
-        if (cameraManager.hasCameraPermission()) {
+        if (cameraManager.hasCameraPermission() && cameraManager.hasMicrophonePermission()) {
             onPermissionGranted();
         } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            requestPermissions(new String[]{Manifest.permission.CAMERA}, REQUEST_CAMERA_PERMISSION);
+            requestPermissions(
+                    new String[]{Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO},
+                    REQUEST_CAMERA_PERMISSION);
         } else {
             Toast.makeText(this,
                     "Oops! This app does not have permission to access your camera",
@@ -78,7 +81,14 @@ public class MainActivity extends AppCompatActivity {
                                            @NonNull String[] permissions,
                                            @NonNull int[] grantResults) {
         if (requestCode == REQUEST_CAMERA_PERMISSION) {
-            onPermissionGranted();
+            if (grantResults[0] == PackageManager.PERMISSION_GRANTED &&
+                    grantResults[1] == PackageManager.PERMISSION_GRANTED) {
+                onPermissionGranted();
+            } else {
+                Toast.makeText(this,
+                        "This app needs access to the camera and microphone to work",
+                        Toast.LENGTH_LONG).show();
+            }
         }
     }
 
@@ -114,7 +124,7 @@ public class MainActivity extends AppCompatActivity {
         );
         final StillCaptureHandler captureSession =
                 new StillCaptureHandler(ImageFormat.JPEG,
-                        cameraManager.getLargestAvailableSize(cameraId, ImageFormat.JPEG),
+                        cameraManager.getLargestAvailableImageSize(cameraId, ImageFormat.JPEG),
                         new OnImageAvailableListener() {
                             private int imageCount = 0;
                             @Override
@@ -133,7 +143,8 @@ public class MainActivity extends AppCompatActivity {
                             }
                         });
 
-        final VideoCaptureHandler videoSession = new VideoCaptureHandler(new Size(400, 300));
+        final VideoCaptureHandler videoSession = new VideoCaptureHandler(
+                cameraManager.getLargestAvailableVideoSize(cameraId));
 
         cameraManager.startCaptureSession(cameraId, mShowPreview ? previewHandler : null,
                 Collections.singletonList(captureSession), Collections.singletonList(videoSession));

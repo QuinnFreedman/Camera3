@@ -77,7 +77,7 @@ public class BasicInstrumentedTest {
         Camera3 camera3 = new Camera3(appContext, testErrorHandler);
         String cameraId = camera3.getAvailableCameras().get(0);
 
-        final Size size = camera3.getLargestAvailableSize(cameraId, ImageFormat.JPEG);
+        final Size size = camera3.getLargestAvailableImageSize(cameraId, ImageFormat.JPEG);
         final StillCaptureHandler cs = new StillCaptureHandler(
                 ImageFormat.JPEG, size,
                 new OnImageAvailableListener() {

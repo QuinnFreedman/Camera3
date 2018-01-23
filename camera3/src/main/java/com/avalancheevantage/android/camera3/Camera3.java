@@ -31,6 +31,7 @@ import android.hardware.camera2.TotalCaptureResult;
 import android.hardware.camera2.params.StreamConfigurationMap;
 import android.media.Image;
 import android.media.ImageReader;
+import android.media.MediaRecorder;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
@@ -46,10 +47,12 @@ import android.view.TextureView;
 import org.jetbrains.annotations.Contract;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.Semaphore;
@@ -396,6 +399,7 @@ public final class Camera3 {
     /**
      * TODO doc
      */
+    //TODO allow caller to specify output file?
     public void startVideoCapture(@NonNull final VideoCaptureHandler handler) {
         if (requireNotNull(handler, "VideoCaptureHandler cannot be null") ||
             requireNotNull(mSession, "Trying to start video capture when session is null")) {
@@ -409,14 +413,33 @@ public final class Camera3 {
             return;
         }
 
+        //check permissions
+        if (!(hasCameraPermission() && hasMicrophonePermission())) {
+            mErrorHandler.error(
+                    "Permission denied to access the camera or microphone. " +
+                            "Camera Permission must be obtained by activity before starting Camera3",
+                    null);
+        }
+
+        File outputFile;
+        try {
+            outputFile = File.createTempFile("vid", ".mp4"); //TODO get suffix from handler's encoding type
+            //TODO delete file on close?
+        } catch (IOException e) {
+            mErrorHandler.error("Unable to create video file", e);
+            return;
+        }
+
         //close preview
         if (mCaptureSession != null) {
             mCaptureSession.close();
             mCaptureSession = null;
         }
 
+        mErrorHandler.info(String.format("Recording %s video to temporary file: %s", handler.getVideoSize().toString(), outputFile.getPath()));
+
         int rotation = PrivateUtils.getScreenRotation(mContext, mErrorHandler);
-        handler.setUpMediaRecorder("TODO", mSensorOrientation, rotation);
+        handler.setUpMediaRecorder(outputFile.getPath(), mSensorOrientation, rotation);
 
         List<Surface> surfaces = new ArrayList<>();
 
@@ -1220,17 +1243,17 @@ public final class Camera3 {
         return manager.getCameraCharacteristics(cameraId);
     }
 
-    @NonNull
-    public Collection<Size> getAvailableSizes(@NonNull String cameraId, int format) {
+    @Nullable
+    private StreamConfigurationMap getConfigurationMap(@NonNull String cameraId) {
         CameraCharacteristics characteristics;
         try {
             characteristics = getCameraInfo(cameraId);
         } catch (CameraAccessException e) {
             reportCameraAccessException(e);
-            return Collections.emptyList();
+            return null;
         }
         if (characteristics == null) {
-            return Collections.emptyList();
+            return null;
         }
         StreamConfigurationMap map = characteristics.get(
                 CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
@@ -1239,17 +1262,72 @@ public final class Camera3 {
                     "CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP was null " +
                             "for the given cameraId",
                     null);
-            return Collections.emptyList();
+            return null;
         }
-        return Collections.unmodifiableCollection(
-                asList(map.getOutputSizes(format)));
+
+        return map;
     }
 
-    public Size getLargestAvailableSize(String cameraId, int imageFormat) {
-        return Collections.max(
-                getAvailableSizes(cameraId, imageFormat),
-                new PrivateUtils.CompareSizesByArea());
+    /** TODO doc
+     * @param cameraId
+     * @param format
+     * @return
+     */
+    @NonNull
+    public Collection<Size> getAvailableImageSizes(@NonNull String cameraId, int format) {
+
+        StreamConfigurationMap map = getConfigurationMap(cameraId);
+
+        return map == null ? Collections.<Size>emptySet() :
+                Collections.unmodifiableCollection(asList(map.getOutputSizes(format)));
     }
+
+    /** TODO doc
+     * @param cameraId
+     * @param imageFormat
+     * @return
+     */
+    @Nullable
+    public Size getLargestAvailableImageSize(String cameraId, int imageFormat) {
+        try {
+            return Collections.max(
+                    getAvailableImageSizes(cameraId, imageFormat),
+                    new PrivateUtils.CompareSizesByArea());
+        } catch (NoSuchElementException e) {
+            return null;
+        }
+    }
+
+    /**
+     * TODO doc
+     * @param cameraId
+     * @return
+     */
+    @NonNull
+    public Collection<Size> getAvailableVideoSizes(@NonNull String cameraId) {
+
+        StreamConfigurationMap map = getConfigurationMap(cameraId);
+
+        return map == null ? Collections.<Size>emptySet() :
+                Collections.unmodifiableCollection(asList(map.getOutputSizes(MediaRecorder.class)));
+    }
+
+    /**
+     * TODO doc
+     * @param cameraId
+     * @return
+     */
+    @Nullable
+    public Size getLargestAvailableVideoSize(String cameraId) {
+        try {
+            return Collections.max(
+                    getAvailableVideoSizes(cameraId),
+                    new PrivateUtils.CompareSizesByArea());
+        } catch (NoSuchElementException e) {
+            return null;
+        }
+    }
+
 
     public interface PreviewSizeCallback {
         void previewSizeSelected(int orientation, Size previewSize);
@@ -1276,6 +1354,11 @@ public final class Camera3 {
 
     public boolean hasCameraPermission() {
         return ContextCompat.checkSelfPermission(mContext, Manifest.permission.CAMERA)
+                == PackageManager.PERMISSION_GRANTED;
+    }
+
+    public boolean hasMicrophonePermission() {
+        return ContextCompat.checkSelfPermission(mContext, Manifest.permission.RECORD_AUDIO)
                 == PackageManager.PERMISSION_GRANTED;
     }
 

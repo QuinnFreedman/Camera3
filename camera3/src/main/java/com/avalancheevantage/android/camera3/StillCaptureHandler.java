@@ -52,8 +52,8 @@ public final class StillCaptureHandler {
      * @param imageFormat The format to capture in (from {@link android.graphics.ImageFormat}).
      *                    E.g. ImageFormat.JPEG
      * @param imageSize The size of the image to capture. This size should come from
-     *                  {@link Camera3#getAvailableSizes(String, int)} or
-     *                  {@link Camera3#getLargestAvailableSize(String, int)}
+     *                  {@link Camera3#getAvailableImageSizes(String, int)} or
+     *                  {@link Camera3#getLargestAvailableImageSize(String, int)}
      *                  //TODO test when this is not from the list
      * @param onImageAvailableListener a callback to receive the images from this session once they
      *                                 have been captured
