@@ -430,38 +430,39 @@ public final class Camera3 {
             return;
         }
 
-        //close preview
-        if (mCaptureSession != null) {
-            mCaptureSession.close();
-            mCaptureSession = null;
-        }
-
-        mErrorHandler.info(String.format("Recording %s video to temporary file: %s", handler.getVideoSize().toString(), outputFile.getPath()));
-
-        int rotation = PrivateUtils.getScreenRotation(mContext, mErrorHandler);
-        handler.setUpMediaRecorder(outputFile.getPath(), mSensorOrientation, rotation);
-
-        List<Surface> surfaces = new ArrayList<>();
-
-        PreviewHandler previewHandler = mSession.getPreview();
-
-        if (previewHandler != null) {
-            SurfaceTexture previewTexture = previewHandler.getSurfaceTexture();
-
-            Size previewSize = previewHandler.getPreviewSize();
-            previewTexture.setDefaultBufferSize(previewSize.getWidth(), previewSize.getHeight());
-
-            Surface previewSurface = new Surface(previewTexture);
-            surfaces.add(previewSurface);
-            //TODO previewRequestBuilder might already have target?
-            mPreviewRequestBuilder.addTarget(previewSurface);
-        }
-
-        Surface recorderSurface = handler.getRecorderSurface();
-        surfaces.add(recorderSurface);
-        mPreviewRequestBuilder.addTarget(recorderSurface);
-
         try {
+            //close preview
+            if (mCaptureSession != null) {
+                mCaptureSession.close();
+                mCaptureSession = null;
+            }
+
+            mErrorHandler.info(String.format("Recording %s video to temporary file: %s",
+                    handler.getVideoSize().toString(), outputFile.getPath()));
+
+            int rotation = PrivateUtils.getScreenRotation(mContext, mErrorHandler);
+            handler.setUpMediaRecorder(outputFile.getPath(), mSensorOrientation, rotation);
+
+            List<Surface> surfaces = new ArrayList<>();
+
+            PreviewHandler previewHandler = mSession.getPreview();
+
+            if (previewHandler != null) {
+                SurfaceTexture previewTexture = previewHandler.getSurfaceTexture();
+
+                Size previewSize = previewHandler.getPreviewSize();
+                previewTexture.setDefaultBufferSize(previewSize.getWidth(), previewSize.getHeight());
+
+                Surface previewSurface = new Surface(previewTexture);
+                surfaces.add(previewSurface);
+                //TODO previewRequestBuilder might already have target?
+                mPreviewRequestBuilder.addTarget(previewSurface);
+            }
+
+            Surface recorderSurface = handler.getRecorderSurface();
+            surfaces.add(recorderSurface);
+            mPreviewRequestBuilder.addTarget(recorderSurface);
+
             mCameraDevice.createCaptureSession(surfaces, new CameraCaptureSession.StateCallback() {
                 @Override
                 public void onConfigured(@NonNull CameraCaptureSession cameraCaptureSession) {
@@ -478,6 +479,8 @@ public final class Camera3 {
             }, mBackgroundHandler);
         } catch (CameraAccessException e) {
             reportCameraAccessException(e);
+        } catch (Exception e) {
+            mErrorHandler.error("Unable to start video capture", e);
         }
     }
 
@@ -1300,6 +1303,7 @@ public final class Camera3 {
 
     /**
      * TODO doc
+     * TODO BUG sometimes some of these sizes don't actually work - lead to surface abandoned error
      * @param cameraId
      * @return
      */
@@ -1312,20 +1316,19 @@ public final class Camera3 {
                 Collections.unmodifiableCollection(asList(map.getOutputSizes(MediaRecorder.class)));
     }
 
-    /**
-     * TODO doc
+    /** TODO doc
      * @param cameraId
      * @return
      */
-    @Nullable
-    public Size getLargestAvailableVideoSize(String cameraId) {
-        try {
-            return Collections.max(
-                    getAvailableVideoSizes(cameraId),
-                    new PrivateUtils.CompareSizesByArea());
-        } catch (NoSuchElementException e) {
-            return null;
+    public Size getDefaultVideoSize(@NonNull String cameraId) {
+        List<Size> choices = new ArrayList<>(getAvailableVideoSizes(cameraId));
+        for (Size size : choices) {
+            if (size.getWidth() == size.getHeight() * 4 / 3 && size.getWidth() <= 1080) {
+                return size;
+            }
         }
+        mErrorHandler.warning("Couldn't find any suitable video size");
+        return choices.get(choices.size() - 1);
     }
 
 

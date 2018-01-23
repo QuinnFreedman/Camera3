@@ -9,6 +9,7 @@ import android.util.SparseIntArray;
 import android.view.Surface;
 
 import java.io.IOException;
+import java.util.Objects;
 
 import static com.avalancheevantage.android.camera3.PrivateUtils.requireNotNull;
 
@@ -46,6 +47,7 @@ public class VideoCaptureHandler {
         return videoSize;
     }
 
+    //TODO: allow the user to not specify a size; use Camera3.getDefaultVideoSize
     public VideoCaptureHandler(@NonNull Size videoSize) {
         this.videoSize = videoSize;
     }
@@ -90,7 +92,7 @@ public class VideoCaptureHandler {
     }
 
     Surface getRecorderSurface() {
-        requireNotNull(mediaRecorder, "MediaRecorder is null", errorHandler);
+        Objects.requireNonNull(mediaRecorder, "MediaRecorder is null");
 
         Log.d("VCH", "mediaRecorder.getSurface().isValid(): " + mediaRecorder.getSurface().isValid());
 
@@ -98,12 +100,12 @@ public class VideoCaptureHandler {
     }
 
     void start() throws IllegalStateException {
-        if (!recording) {
+        if (recording) {
             throw new IllegalStateException(
                     "Trying to start video capture but video capture is already in progress");
         }
 
-        requireNotNull(mediaRecorder, "MediaRecorder is null", errorHandler);
+        if (requireNotNull(mediaRecorder, "Internal error: MediaRecorder is null", errorHandler)) return;
 
         mediaRecorder.start();
     }
@@ -113,6 +115,8 @@ public class VideoCaptureHandler {
             throw new IllegalStateException(
                     "Trying to stop video capture but no video is being recorded");
         }
+
+        if (requireNotNull(mediaRecorder, "Internal error: MediaRecorder is null", errorHandler)) return;
 
         mediaRecorder.stop();
         mediaRecorder.reset();
