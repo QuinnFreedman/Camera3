@@ -3,7 +3,6 @@ package com.avalancheevantage.android.camera3;
 import android.media.MediaRecorder;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
-import android.util.Log;
 import android.util.Size;
 import android.util.SparseIntArray;
 import android.view.Surface;
@@ -11,7 +10,7 @@ import android.view.Surface;
 import java.io.IOException;
 import java.util.Objects;
 
-import static com.avalancheevantage.android.camera3.PrivateUtils.requireNotNull;
+import static com.avalancheevantage.android.camera3.PrivateUtils.checkNull;
 
 /**
  * Created by Quinn Freedman on 12/21/2017.
@@ -64,7 +63,6 @@ public class VideoCaptureHandler {
     }
 
     void setUpMediaRecorder(String videoFilePath, int sensorOrientation, int rotation) {
-        //TODO: why are all these methods failing?? check example
         mediaRecorder = new MediaRecorder();
         mediaRecorder.setAudioSource(MediaRecorder.AudioSource.CAMCORDER);
         mediaRecorder.setVideoSource(MediaRecorder.VideoSource.SURFACE);
@@ -94,8 +92,6 @@ public class VideoCaptureHandler {
     Surface getRecorderSurface() {
         Objects.requireNonNull(mediaRecorder, "MediaRecorder is null");
 
-        Log.d("VCH", "mediaRecorder.getSurface().isValid(): " + mediaRecorder.getSurface().isValid());
-
         return mediaRecorder.getSurface();
     }
 
@@ -105,7 +101,7 @@ public class VideoCaptureHandler {
                     "Trying to start video capture but video capture is already in progress");
         }
 
-        if (requireNotNull(mediaRecorder, "Internal error: MediaRecorder is null", errorHandler)) return;
+        if (checkNull(mediaRecorder, "Internal error: MediaRecorder is null", errorHandler)) return;
 
         mediaRecorder.start();
     }
@@ -116,7 +112,7 @@ public class VideoCaptureHandler {
                     "Trying to stop video capture but no video is being recorded");
         }
 
-        if (requireNotNull(mediaRecorder, "Internal error: MediaRecorder is null", errorHandler)) return;
+        if (checkNull(mediaRecorder, "Internal error: MediaRecorder is null", errorHandler)) return;
 
         mediaRecorder.stop();
         mediaRecorder.reset();

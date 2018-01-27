@@ -33,7 +33,7 @@ import java.util.Objects;
 class PrivateUtils {
 
     @Contract("!null, _, !null -> false")
-    static boolean requireNotNull(Object o, String message, ErrorHandler errorHandler) {
+    static boolean checkNull(Object o, String message, ErrorHandler errorHandler) {
         try {
             Objects.requireNonNull(o, message);
         } catch (NullPointerException e) {
@@ -108,8 +108,8 @@ class PrivateUtils {
         }
         errorHandler.info("Configuring preview transform matrix...");
         //noinspection ConstantConditions
-        if (requireNotNull(previewHandler, "preview session is null when trying to configure preview transform", errorHandler) ||
-            requireNotNull(context, "context is null when trying to configure preview transform", errorHandler)
+        if (checkNull(previewHandler, "preview session is null when trying to configure preview transform", errorHandler) ||
+            checkNull(context, "context is null when trying to configure preview transform", errorHandler)
         ) {
             return;
         }
@@ -151,10 +151,10 @@ class PrivateUtils {
                                    @NonNull ErrorHandler errorHandler) {
         //noinspection ConstantConditions
         if (
-            requireNotNull(previewHandler, "Cannot configure null preview session", errorHandler) ||
-            requireNotNull(previewTextureSize, "previewTextureSize is null", errorHandler) ||
-            requireNotNull(context, "context is null in setUpPreviewOutput()", errorHandler) ||
-            requireNotNull(cameraId, "cameraId is null in setUpPreviewOutput()", errorHandler)
+            checkNull(previewHandler, "Cannot configure null preview session", errorHandler) ||
+            checkNull(previewTextureSize, "previewTextureSize is null", errorHandler) ||
+            checkNull(context, "context is null in setUpPreviewOutput()", errorHandler) ||
+            checkNull(cameraId, "cameraId is null in setUpPreviewOutput()", errorHandler)
         ) {
             return;
         }

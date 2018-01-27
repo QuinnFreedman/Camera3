@@ -1228,7 +1228,7 @@ public final class Camera3 {
 
     @Contract("null, _ -> true")
     private boolean requireNotNull(Object o, String message) {
-        return PrivateUtils.requireNotNull(o, message, mErrorHandler);
+        return PrivateUtils.checkNull(o, message, mErrorHandler);
     }
 
     /* Public Utils */
