@@ -254,12 +254,15 @@ public final class Camera3 {
      * @param stillCaptureHandlers a list of zero or more {@link StillCaptureHandler}'s,
      *                             or null if no still images will be captured. Usually only one
      *                             is required.
-     * @param videoCaptureHandlers
+     * @param videoCaptureHandlers a list of zero or more {@link VideoCaptureHandler}'s,
+     *                             or null if no video will be recorded. Usually a maximum of one
+     *                             is required.
      * @param onSessionStarted     an optional callback that will be called to notify the user when
      *                             the camera has been opened and the capture session has been
      *                             started.
      * @see PreviewHandler
      * @see StillCaptureHandler
+     * @see VideoCaptureHandler
      */
     public void startCaptureSession(@NonNull String cameraId,
                                     @Nullable PreviewHandler previewHandler,
@@ -336,7 +339,8 @@ public final class Camera3 {
         startBackgroundThread();
         for (StillCaptureHandler imageCaptureSession : session.getStillCaptures()) {
             imageCaptureSession.initialize(mBackgroundHandler, this);
-            if (!imageCaptureSession.getImageReader().getSurface().isValid()) {
+            if (imageCaptureSession.getImageReader() == null ||
+                    !imageCaptureSession.getImageReader().getSurface().isValid()) {
                 mErrorHandler.warning("Internal Error: Image capture surface is not valid");
             }
         }
@@ -443,6 +447,8 @@ public final class Camera3 {
             int rotation = PrivateUtils.getScreenRotation(mContext, mErrorHandler);
             handler.setUpMediaRecorder(outputFile.getPath(), mSensorOrientation, rotation);
 
+            mPreviewRequestBuilder = mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_RECORD);
+
             List<Surface> surfaces = new ArrayList<>();
 
             PreviewHandler previewHandler = mSession.getPreview();
@@ -455,7 +461,6 @@ public final class Camera3 {
 
                 Surface previewSurface = new Surface(previewTexture);
                 surfaces.add(previewSurface);
-                //TODO previewRequestBuilder might already have target?
                 mPreviewRequestBuilder.addTarget(previewSurface);
             }
 
@@ -466,8 +471,14 @@ public final class Camera3 {
             mCameraDevice.createCaptureSession(surfaces, new CameraCaptureSession.StateCallback() {
                 @Override
                 public void onConfigured(@NonNull CameraCaptureSession cameraCaptureSession) {
+                    mCaptureSession = cameraCaptureSession;
                     if (mSession.getPreview() != null) {
-                        mCaptureSession = cameraCaptureSession;
+                        try {
+                            mCaptureSession.setRepeatingRequest(mPreviewRequestBuilder.build(),
+                                    null, mBackgroundHandler);
+                        } catch (CameraAccessException e) {
+                            reportCameraAccessException(e);
+                        }
                     }
                     handler.start();
                 }
@@ -1206,6 +1217,7 @@ public final class Camera3 {
 
             //if this is called from a thread without a looper (esp in testing), use the background
             //handler to handle the result
+            //(A null handler will tell mCaptureSession.capture to use the current thread's looper)
             Handler captureHandler = null;
             if (Looper.myLooper() == null) {
                 captureHandler = mBackgroundHandler;
@@ -1355,16 +1367,31 @@ public final class Camera3 {
         new ImageSaver(image, file).run();
     }
 
+    /**
+     * Checks if the app has permission to access the camera
+     * @see Manifest.permission.CAMERA
+     * @return true if you can capture images
+     */
     public boolean hasCameraPermission() {
         return ContextCompat.checkSelfPermission(mContext, Manifest.permission.CAMERA)
                 == PackageManager.PERMISSION_GRANTED;
     }
 
+    /**
+     * Checks if the app has permission to access the microphone
+     * @see Manifest.permission.RECORD_AUDO
+     * @return true if you can record audio
+     */
     public boolean hasMicrophonePermission() {
         return ContextCompat.checkSelfPermission(mContext, Manifest.permission.RECORD_AUDIO)
                 == PackageManager.PERMISSION_GRANTED;
     }
 
+    /**
+     * Checks if the app has permission to write to the file system.
+     * @see Manifest.permission.WRITE_EXTERNAL_STORAGE
+     * @return true if you can write files
+     */
     public boolean hasWritePermission() {
         return ContextCompat.checkSelfPermission(mContext, Manifest.permission.WRITE_EXTERNAL_STORAGE)
                 == PackageManager.PERMISSION_GRANTED;

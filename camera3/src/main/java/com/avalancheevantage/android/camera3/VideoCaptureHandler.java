@@ -33,13 +33,12 @@ public class VideoCaptureHandler {
         INVERSE_ORIENTATIONS.append(Surface.ROTATION_270, 0);
     }
 
-    @NonNull
-    private final Size videoSize;
+    @NonNull private final Size videoSize;
 
-    @Nullable
-    private MediaRecorder mediaRecorder;
+    @Nullable private MediaRecorder mediaRecorder;
     private ErrorHandler errorHandler;
     private boolean recording = false;
+    @Nullable private String outputFile = null;
 
     @NonNull
     public Size getVideoSize() {
@@ -63,6 +62,7 @@ public class VideoCaptureHandler {
     }
 
     void setUpMediaRecorder(String videoFilePath, int sensorOrientation, int rotation) {
+        this.outputFile = videoFilePath;
         mediaRecorder = new MediaRecorder();
         mediaRecorder.setAudioSource(MediaRecorder.AudioSource.CAMCORDER);
         mediaRecorder.setVideoSource(MediaRecorder.VideoSource.SURFACE);
@@ -116,7 +116,9 @@ public class VideoCaptureHandler {
 
         mediaRecorder.stop();
         mediaRecorder.reset();
+        errorHandler.info("Video saved to " + outputFile);
         recording = false;
+        outputFile = null;
     }
 
 

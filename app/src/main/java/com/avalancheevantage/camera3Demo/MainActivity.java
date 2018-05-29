@@ -43,7 +43,7 @@ public class MainActivity extends AppCompatActivity {
         previewSwitch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-//                mShowPreview = isChecked;
+                mShowPreview = isChecked;
                 cameraManager.pause();
                 onPermissionGranted();
             }

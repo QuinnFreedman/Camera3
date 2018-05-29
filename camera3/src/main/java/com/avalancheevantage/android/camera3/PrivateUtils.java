@@ -43,7 +43,8 @@ class PrivateUtils {
         return false;
     }
 
-    static void reportCameraAccessException(CameraAccessException e, ErrorHandler errorHandler) {
+    static void reportCameraAccessException(@NonNull CameraAccessException e,
+                                            @NonNull ErrorHandler errorHandler) {
         errorHandler.error("Camera Access Exception", e);
     }
 
@@ -60,7 +61,7 @@ class PrivateUtils {
 
     @NonNull
     private static Point getScreenSize(@NonNull Context context,
-                               @NonNull ErrorHandler errorHandler) {
+                                       @NonNull ErrorHandler errorHandler) {
         WindowManager windowManager =
                 (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);
         if (windowManager == null) {
