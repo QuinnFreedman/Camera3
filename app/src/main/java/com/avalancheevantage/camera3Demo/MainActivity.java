@@ -1,14 +1,19 @@
 package com.avalancheevantage.camera3Demo;
 
 import android.Manifest;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.graphics.ImageFormat;
 import android.hardware.camera2.CameraAccessException;
 import android.media.Image;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
 import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
+import android.support.v4.content.FileProvider;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.util.Size;
@@ -27,13 +32,18 @@ import com.avalancheevantage.android.camera3.VideoCaptureHandler;
 import com.avalancheevantage.android.camera3.VideoCaptureStartedCallback;
 
 import java.io.File;
+import java.io.IOException;
+import java.text.SimpleDateFormat;
 import java.util.Collections;
+import java.util.Date;
 
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
     private static final int REQUEST_CAMERA_PERMISSION = 999;
 
     private final Camera3 cameraManager = new Camera3(this, Camera3.ERROR_HANDLER_DEFAULT);
+    @Nullable
+    private File lastCapture;
     private boolean mShowPreview = true;
 
     @Override
@@ -54,11 +64,15 @@ public class MainActivity extends AppCompatActivity {
             Log.d(TAG, "already started");
             return;
         }
-        if (cameraManager.hasCameraPermission() && cameraManager.hasMicrophonePermission()) {
+        if (cameraManager.hasCameraPermission() &&
+                cameraManager.hasMicrophonePermission() &&
+                cameraManager.hasWritePermission()) {
             onPermissionGranted();
         } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             requestPermissions(
-                    new String[]{Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO},
+                    new String[]{Manifest.permission.CAMERA,
+                            Manifest.permission.RECORD_AUDIO,
+                            Manifest.permission.WRITE_EXTERNAL_STORAGE},
                     REQUEST_CAMERA_PERMISSION);
         } else {
             Toast.makeText(this,
@@ -129,19 +143,18 @@ public class MainActivity extends AppCompatActivity {
                         cameraManager.getLargestAvailableImageSize(cameraId, ImageFormat.JPEG),
                         new OnImageAvailableListener() {
                             private int imageCount = 0;
+
                             @Override
                             public void onImageAvailable(Image image) {
                                 ++imageCount;
                                 Log.d(TAG, "***********************************************");
-                                Log.d(TAG, "IMAGE AVAILABLE: "+imageCount);
+                                Log.d(TAG, "IMAGE AVAILABLE: " + imageCount);
                                 Log.d(TAG, "***********************************************");
                                 Toast.makeText(MainActivity.this,
-                                        "Image Captured! "+imageCount, Toast.LENGTH_SHORT).show();
-//                                try {
-//                                    cameraManager.saveImage(image, File.createTempFile("test","jpeg"));
-//                                } catch (IOException e) {
-//                                    e.printStackTrace();
-//                                }
+                                        "Image Captured! " + imageCount,
+                                        Toast.LENGTH_SHORT).show();
+                                lastCapture = createMediaFile("jpg");
+                                cameraManager.saveImage(image, lastCapture);
                             }
                         });
 
@@ -166,7 +179,8 @@ public class MainActivity extends AppCompatActivity {
                 recordingVideo = !recordingVideo;
                 videoButton.setText(recordingVideo ? "Stop Recording" : "Start Recording");
                 if (recordingVideo) {
-                    cameraManager.startVideoCapture(videoSession, null,
+                    File myOutputFile = createMediaFile("mp4");
+                    cameraManager.startVideoCapture(videoSession, myOutputFile,
                             new VideoCaptureStartedCallback() {
                                 @Override
                                 public void captureStarted(@NonNull VideoCaptureHandler handler,
@@ -174,10 +188,29 @@ public class MainActivity extends AppCompatActivity {
                                     Toast.makeText(MainActivity.this,
                                             "Started recording video to " + outputFile,
                                             Toast.LENGTH_LONG).show();
+                                    lastCapture = outputFile;
                                 }
                             });
                 } else {
                     cameraManager.stopVideoCapture(videoSession);
+                }
+            }
+        });
+
+        final Button viewButton = findViewById(R.id.btn_view_image);
+        viewButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (lastCapture != null) {
+                    Intent intent = new Intent();
+                    intent.setAction(Intent.ACTION_VIEW);
+                    Uri photoURI = FileProvider.getUriForFile(MainActivity.this,
+                            BuildConfig.APPLICATION_ID + ".provider",
+                            lastCapture);
+                    Log.d(TAG, "photoUri = " + photoURI);
+                    intent.setData(photoURI);
+                    intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    startActivity(intent);
                 }
             }
         });
@@ -189,5 +222,22 @@ public class MainActivity extends AppCompatActivity {
     protected void onPause() {
         super.onPause();
         cameraManager.pause();
+
+    }
+
+    @Nullable
+    private static File createMediaFile(String ext) {
+        // Create an image file name
+        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
+        String imageFileName = "JPEG_" + timeStamp + "_";
+        File storageDir = new File(Environment.getExternalStoragePublicDirectory(
+                Environment.DIRECTORY_DCIM), "Camera");
+
+        try {
+            return File.createTempFile(imageFileName, "." + ext, storageDir);
+        } catch (IOException e) {
+            e.printStackTrace();
+            return null;
+        }
     }
 }
