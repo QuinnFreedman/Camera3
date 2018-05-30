@@ -24,7 +24,9 @@ import com.avalancheevantage.android.camera3.OnImageAvailableListener;
 import com.avalancheevantage.android.camera3.PreviewHandler;
 import com.avalancheevantage.android.camera3.StillCaptureHandler;
 import com.avalancheevantage.android.camera3.VideoCaptureHandler;
+import com.avalancheevantage.android.camera3.VideoCaptureStartedCallback;
 
+import java.io.File;
 import java.util.Collections;
 
 public class MainActivity extends AppCompatActivity {
@@ -164,7 +166,16 @@ public class MainActivity extends AppCompatActivity {
                 recordingVideo = !recordingVideo;
                 videoButton.setText(recordingVideo ? "Stop Recording" : "Start Recording");
                 if (recordingVideo) {
-                    cameraManager.startVideoCapture(videoSession);
+                    cameraManager.startVideoCapture(videoSession, null,
+                            new VideoCaptureStartedCallback() {
+                                @Override
+                                public void captureStarted(@NonNull VideoCaptureHandler handler,
+                                                           @NonNull File outputFile) {
+                                    Toast.makeText(MainActivity.this,
+                                            "Started recording video to " + outputFile,
+                                            Toast.LENGTH_LONG).show();
+                                }
+                            });
                 } else {
                     cameraManager.stopVideoCapture(videoSession);
                 }
@@ -177,6 +188,6 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onPause() {
         super.onPause();
-//        cameraManager.pause();
+        cameraManager.pause();
     }
 }

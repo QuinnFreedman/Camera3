@@ -569,10 +569,15 @@ public final class Camera3 {
     }
 
     /**
-     * TODO doc
+     * Asyncronously requests to start capturing video
+     *
+     * @param handler    the handler responsible for configuring and writing the video
+     * @param outputFile the file where the video will be saved, or null to write to a temp file
+     * @param callback   a callback function to be called when the video capture has been started
      */
-    //TODO allow caller to specify output file?
-    public void startVideoCapture(@NonNull final VideoCaptureHandler handler) {
+    public void startVideoCapture(@NonNull final VideoCaptureHandler handler,
+                                  @Nullable final File outputFile,
+                                  @Nullable final VideoCaptureStartedCallback callback) {
         if (requireNotNull(handler, "VideoCaptureHandler cannot be null") ||
                 requireNotNull(mSession, "Trying to start video capture when session is null")) {
             return;
@@ -594,11 +599,15 @@ public final class Camera3 {
                     null);
         }
 
-        File outputFile;
+        final File output;
         try {
-            outputFile = File.createTempFile("vid", ".mp4"); //TODO get suffix from handler's
-            // encoding type
-            //TODO delete file on close?
+            //TODO get suffix from handler's
+            output = outputFile == null ? File.createTempFile("vid", ".mp4") : outputFile;
+            if (!output.exists()) {
+                assert outputFile != null;
+                //noinspection ResultOfMethodCallIgnored
+                outputFile.createNewFile();
+            }
         } catch (IOException e) {
             mErrorHandler.error("Unable to create video file", e);
             return;
@@ -614,10 +623,10 @@ public final class Camera3 {
             }
 
             mErrorHandler.info(String.format("Recording %s video to temporary file: %s",
-                    handler.getVideoSize().toString(), outputFile.getPath()));
+                    handler.getVideoSize().toString(), output.getPath()));
 
             int rotation = PrivateUtils.getScreenRotation(mContext, mErrorHandler);
-            handler.setUpMediaRecorder(outputFile.getPath(), mSensorOrientation, rotation);
+            handler.setUpMediaRecorder(output.getPath(), mSensorOrientation, rotation);
 
             mPreviewRequestBuilder = mCameraDevice.createCaptureRequest(
                     CameraDevice.TEMPLATE_RECORD);
@@ -630,19 +639,17 @@ public final class Camera3 {
                 SurfaceTexture previewTexture = previewHandler.getSurfaceTexture();
 
                 Size previewSize = previewHandler.getPreviewSize();
-                previewTexture.setDefaultBufferSize(previewSize.getWidth(), previewSize.getHeight
-                        ());
+                previewTexture.setDefaultBufferSize(
+                        previewSize.getWidth(),previewSize.getHeight());
 
                 Surface previewSurface = new Surface(previewTexture);
                 surfaces.add(previewSurface);
                 mPreviewRequestBuilder.addTarget(previewSurface);
-                Log.d(TAG, "startVideoCapture: previewSurface.valid: " + previewSurface.isValid());
             }
 
             Surface recorderSurface = handler.getRecorderSurface();
             surfaces.add(recorderSurface);
             mPreviewRequestBuilder.addTarget(recorderSurface);
-            Log.d(TAG, "startVideoCapture: recorderSurface.valid: " + recorderSurface.isValid());
 
             mCameraDevice.createCaptureSession(surfaces, new CameraCaptureSession.StateCallback() {
                 @Override
@@ -657,6 +664,9 @@ public final class Camera3 {
                         }
                     }
                     handler.start();
+                    if (callback != null) {
+                        callback.captureStarted(handler, output);
+                    }
                 }
 
                 @Override
@@ -671,6 +681,15 @@ public final class Camera3 {
         }
     }
 
+    /**
+     * Stops video recording. Video recording must have already started.
+     *
+     * Note: the starting video recording is asyncronous so if you stop immediately after you stop
+     * this method may cause an IllegalStateException
+     *
+     * @param handler the handler that is currently recording video
+     *
+     */
     public void stopVideoCapture(@NonNull VideoCaptureHandler handler) {
         try {
             handler.stop();

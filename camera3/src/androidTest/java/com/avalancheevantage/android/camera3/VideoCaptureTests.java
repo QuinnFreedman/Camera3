@@ -5,11 +5,13 @@ import android.content.Context;
 import android.graphics.ImageFormat;
 import android.graphics.SurfaceTexture;
 import android.media.Image;
+import android.os.Looper;
 import android.support.test.InstrumentationRegistry;
 import android.support.test.rule.GrantPermissionRule;
 import android.support.test.runner.AndroidJUnit4;
 import android.util.Log;
 import android.util.Size;
+import android.view.TextureView;
 
 import net.jodah.concurrentunit.Waiter;
 
@@ -48,30 +50,47 @@ public class VideoCaptureTests {
     }
 
     @Test
-    public void startVideoCaptureSessionWithPreview() throws Exception {
+    public void startVideoCaptureSessionWithoutPreview() throws Exception {
         final Context appContext = InstrumentationRegistry.getTargetContext();
 
         Camera3 camera3 = new Camera3(appContext, TestUtils.testErrorHandler);
         String cameraId = camera3.getAvailableCameras().get(0);
 
-        PreviewHandler previewHandler = new PreviewHandler(
-                new SurfaceTexture(1),
-                new Size(200, 200));
 
         Size size = camera3.getLargestAvailableImageSize(cameraId, ImageFormat.JPEG);
 
         //TODO how to get size for video?
         VideoCaptureHandler vidHandler = new VideoCaptureHandler(size);
 
-        camera3.startCaptureSession(cameraId, previewHandler, null,
+        camera3.startCaptureSession(cameraId, null, null,
                 singletonList(vidHandler));
 
         Thread.sleep(1000);
         camera3.startVideoCapture(vidHandler);
         Log.d("TEST", "startVideoCaptureSessionWithoutCrashing: Done");
-        Thread.sleep(1000);
-//        camera3.stopVideoCapture(vidHandler);
 
     }
+
+//    @Test
+//    public void stopVideoCaptureSessionWithoutPreview() throws Exception {
+//        final Context appContext = InstrumentationRegistry.getTargetContext();
+//
+//        Camera3 camera3 = new Camera3(appContext, TestUtils.testErrorHandler);
+//        String cameraId = camera3.getAvailableCameras().get(0);
+//
+//
+//        Size size = camera3.getLargestAvailableImageSize(cameraId, ImageFormat.JPEG);
+//
+//        //TODO how to get size for video?
+//        VideoCaptureHandler vidHandler = new VideoCaptureHandler(size);
+//
+//        camera3.startCaptureSession(cameraId, null, null,
+//                singletonList(vidHandler));
+//
+//        camera3.startVideoCapture(vidHandler);
+//        Thread.sleep(1000);
+//
+//        camera3.stopVideoCapture(vidHandler);
+//    }
 }
 
