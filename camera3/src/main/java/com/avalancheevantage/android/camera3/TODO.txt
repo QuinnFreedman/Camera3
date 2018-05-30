@@ -1,4 +1,4 @@
- - stop video recording
+ - figure out why video test doesn't work
 
  - allow video recording without audio (without mic permissions)
  - allow recording with custom video size

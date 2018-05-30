@@ -103,6 +103,7 @@ public class VideoCaptureHandler {
 
         if (checkNull(mediaRecorder, "Internal error: MediaRecorder is null", errorHandler)) return;
 
+        recording = true;
         mediaRecorder.start();
     }
 

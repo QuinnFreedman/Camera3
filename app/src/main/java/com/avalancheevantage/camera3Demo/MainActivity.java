@@ -166,7 +166,7 @@ public class MainActivity extends AppCompatActivity {
                 if (recordingVideo) {
                     cameraManager.startVideoCapture(videoSession);
                 } else {
-                    //TODO stop capture
+                    cameraManager.stopVideoCapture(videoSession);
                 }
             }
         });
