@@ -89,7 +89,7 @@ public final class Camera3 {
 
                 }
             };
-//    public static final CaptureRequestConfiguration CAPTURE_CONFIG_FLASH =
+    //    public static final CaptureRequestConfiguration CAPTURE_CONFIG_FLASH =
 //            new CaptureRequestConfiguration() {
 //                @Override
 //                public void configure(CaptureRequest.Builder request) {
@@ -648,7 +648,7 @@ public final class Camera3 {
 
                 Size previewSize = previewHandler.getPreviewSize();
                 previewTexture.setDefaultBufferSize(
-                        previewSize.getWidth(),previewSize.getHeight());
+                        previewSize.getWidth(), previewSize.getHeight());
 
                 Surface previewSurface = new Surface(previewTexture);
                 surfaces.add(previewSurface);
@@ -691,12 +691,11 @@ public final class Camera3 {
 
     /**
      * Stops video recording. Video recording must have already started.
-     *
+     * <p>
      * Note: the starting video recording is asyncronous so if you stop immediately after you stop
      * this method may cause an IllegalStateException
      *
      * @param handler the handler that is currently recording video
-     *
      */
     public void stopVideoCapture(@NonNull VideoCaptureHandler handler) {
         try {
@@ -864,8 +863,7 @@ public final class Camera3 {
             mErrorHandler.info("Preview texture size == " + previewTextureSize);
             PrivateUtils.setUpPreviewOutput(cameraId, previewTextureSize, sensorOrientation,
                     mSession.getPreview(), mContext, mErrorHandler);
-            PrivateUtils.configureTransform(mSession.getPreview(),
-                    mContext, mErrorHandler);
+            PrivateUtils.configureTransform(mSession.getPreview(), mContext, mErrorHandler);
 
         }
         CameraManager manager = (CameraManager) mContext.getSystemService(Context.CAMERA_SERVICE);
@@ -962,7 +960,7 @@ public final class Camera3 {
         SurfaceTexture texture = previewHandler.getSurfaceTexture();
         if (requireNotNull(texture, "previewHandler.getSurfaceTexture() is null")) {
             return;
-    }
+        }
 
         // We configure the size of default buffer to be the size of camera preview we want.
         texture.setDefaultBufferSize(previewSize.getWidth(), previewSize.getHeight());
@@ -1279,11 +1277,11 @@ public final class Camera3 {
     }
 
     /**
-     * TODO doc
+     * Get all supported image sizes for the given image format and camera
      *
-     * @param cameraId
-     * @param format
-     * @return
+     * @param cameraId the id of the camera form {@link Camera3#getAvailableCameras()}
+     * @param format one of {@link android.graphics.ImageFormat}
+     * @return an unmodifiable Collection of all the supported sizes
      */
     @NonNull
     public Collection<Size> getAvailableImageSizes(@NonNull String cameraId, int format) {
@@ -1295,11 +1293,15 @@ public final class Camera3 {
     }
 
     /**
-     * TODO doc
+     * Gets the largest image dimensions (by area) that the given camera is able to take in the
+     * given format
      *
-     * @param cameraId
-     * @param imageFormat
-     * @return
+     * @param cameraId the id of the camera form {@link Camera3#getAvailableCameras()}
+     * @param imageFormat one of {@link android.graphics.ImageFormat}
+     * @return the largest {@link Size} if one exists or {@code null} if the camera does not offer
+     * any sizes for the given format
+     *
+     * @see Camera3#getAvailableImageSizes(String, int)
      */
     @Nullable
     public Size getLargestAvailableImageSize(String cameraId, int imageFormat) {
@@ -1316,7 +1318,7 @@ public final class Camera3 {
      * TODO doc
      * TODO BUG sometimes some of these sizes don't actually work - lead to surface abandoned error
      *
-     * @param cameraId
+     * @param cameraId the id of the camera form {@link Camera3#getAvailableCameras()}
      * @return
      */
     @NonNull
@@ -1329,10 +1331,12 @@ public final class Camera3 {
     }
 
     /**
-     * TODO doc
+     * Get a recommended video size at a reasonable aspect ratio and size. Chooses form
+     * {@link Camera3#getAvailableVideoSizes(String)}
      *
-     * @param cameraId
-     * @return
+     * @param cameraId the id of the camera form {@link Camera3#getAvailableCameras()}
+     * @return the best available video size or {@code null} if the camera does not support any
+     * video sizes
      */
     public Size getDefaultVideoSize(@NonNull String cameraId) {
         List<Size> choices = new ArrayList<>(getAvailableVideoSizes(cameraId));
@@ -1342,7 +1346,7 @@ public final class Camera3 {
             }
         }
         mErrorHandler.warning("Couldn't find any suitable video size");
-        return choices.get(choices.size() - 1);
+        return choices.isEmpty() ? null : choices.get(choices.size() - 1);
     }
 
     /**
@@ -1402,7 +1406,7 @@ public final class Camera3 {
                 == PackageManager.PERMISSION_GRANTED;
     }
 
-    public enum CameraState {
+    enum CameraState {
         //Waiting for the camera to open
         WAITING_CAMERA_OPEN,
         //Showing camera preview
@@ -1418,6 +1422,17 @@ public final class Camera3 {
     }
 
     public interface PreviewSizeCallback {
+        /**
+         * A callback function that you can implement if you want to be notified when the camera
+         * chooses a preview size.
+         *
+         * @param orientation may be one of
+         *                    {@link android.content.res.Configuration#ORIENTATION_PORTRAIT} or
+         *                    {@link android.content.res.Configuration#ORIENTATION_LANDSCAPE}
+         * @param previewSize the size that was chosen
+         * @see PreviewHandler#PreviewHandler(SurfaceTexture, Size, CaptureRequestConfiguration,
+         * PreviewSizeCallback)
+         */
         void previewSizeSelected(int orientation, Size previewSize);
     }
 
@@ -1476,7 +1491,7 @@ public final class Camera3 {
     private class PreviewTextureListener implements TextureView.SurfaceTextureListener {
         private String cameraId;
 
-        public PreviewTextureListener(String cameraId) {
+        PreviewTextureListener(String cameraId) {
             this.cameraId = cameraId;
         }
 

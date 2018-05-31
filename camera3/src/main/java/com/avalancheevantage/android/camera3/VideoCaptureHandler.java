@@ -17,8 +17,8 @@ import static com.avalancheevantage.android.camera3.PrivateUtils.checkNull;
  */
 
 public class VideoCaptureHandler {
-    public static final int SENSOR_ORIENTATION_DEFAULT_DEGREES = 90;
-    public static final int SENSOR_ORIENTATION_INVERSE_DEGREES = 270;
+    private static final int SENSOR_ORIENTATION_DEFAULT_DEGREES = 90;
+    private static final int SENSOR_ORIENTATION_INVERSE_DEGREES = 270;
     private static final SparseIntArray DEFAULT_ORIENTATIONS = new SparseIntArray();
     private static final SparseIntArray INVERSE_ORIENTATIONS = new SparseIntArray();
     static {
@@ -45,7 +45,6 @@ public class VideoCaptureHandler {
         return videoSize;
     }
 
-    //TODO: allow the user to not specify a size; use Camera3.getDefaultVideoSize
     public VideoCaptureHandler(@NonNull Size videoSize) {
         this.videoSize = videoSize;
     }
