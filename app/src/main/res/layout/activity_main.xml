@@ -42,7 +42,23 @@
             android:layout_height="wrap_content"
             android:text="@string/capture" />
 
+        <Button
+            android:id="@+id/video"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Start Recording"/>
+
     </LinearLayout>
+
+    <Button
+        android:id="@+id/btn_view_image"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="4dp"
+        android:layout_marginTop="8dp"
+        android:text="View Captured Image"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
 
     <Switch
         android:id="@+id/switch_show_preview"

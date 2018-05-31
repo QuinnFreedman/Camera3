@@ -50,7 +50,7 @@ public class StillCaptureTests {
         Camera3 camera3 = new Camera3(appContext, TestUtils.testErrorHandler);
         String cameraId = camera3.getAvailableCameras().get(0);
 
-        Size size = camera3.getLargestAvailableSize(cameraId, ImageFormat.JPEG);
+        Size size = camera3.getLargestAvailableImageSize(cameraId, ImageFormat.JPEG);
 
         StillCaptureHandler cs = new StillCaptureHandler(
                 ImageFormat.JPEG, size, new OnImageAvailableListener() {
@@ -72,7 +72,7 @@ public class StillCaptureTests {
         final Camera3 camera = new Camera3(appContext, TestUtils.testErrorHandler);
         final String cameraId = camera.getAvailableCameras().get(0);
 
-        final Size size = camera.getLargestAvailableSize(cameraId, ImageFormat.JPEG);
+        final Size size = camera.getLargestAvailableImageSize(cameraId, ImageFormat.JPEG);
 
         final StillCaptureHandler cs = new StillCaptureHandler(
                 ImageFormat.JPEG, size, new OnImageAvailableListener() {
@@ -83,7 +83,7 @@ public class StillCaptureTests {
         });
 
         camera.startCaptureSession(cameraId, null, Arrays.asList(cs),
-                new Runnable() {
+                null, new Runnable() {
                     @Override
                     public void run() {
                         camera.captureImage(cs, Camera3.PRECAPTURE_CONFIG_NONE,
@@ -111,7 +111,7 @@ public class StillCaptureTests {
         final Camera3 camera = new Camera3(appContext, errorHandler);
         final String cameraId = camera.getAvailableCameras().get(0);
 
-        final Size size = camera.getLargestAvailableSize(cameraId, ImageFormat.JPEG);
+        final Size size = camera.getLargestAvailableImageSize(cameraId, ImageFormat.JPEG);
 
         final StillCaptureHandler cs = new StillCaptureHandler(
                 ImageFormat.JPEG, size, new OnImageAvailableListener() {
@@ -122,7 +122,7 @@ public class StillCaptureTests {
         });
 
         camera.startCaptureSession(cameraId, null, Collections.singletonList(cs),
-                new Runnable() {
+                null, new Runnable() {
                     @Override
                     public void run() {
                         camera.pause();
@@ -153,7 +153,7 @@ public class StillCaptureTests {
         final Camera3 camera = new Camera3(appContext, errorHandler);
         final String cameraId = camera.getAvailableCameras().get(0);
 
-        final Size size = camera.getLargestAvailableSize(cameraId, ImageFormat.JPEG);
+        final Size size = camera.getLargestAvailableImageSize(cameraId, ImageFormat.JPEG);
 
         final StillCaptureHandler cs = new StillCaptureHandler(
                 ImageFormat.JPEG, size, new OnImageAvailableListener() {
@@ -165,13 +165,13 @@ public class StillCaptureTests {
         });
 
         camera.startCaptureSession(cameraId, null, Arrays.asList(cs),
-                new Runnable() {
+                null, new Runnable() {
                     @Override
                     public void run() {
                         camera.pause();
                         camera.startCaptureSession(cameraId, null,
                                 Collections.singletonList(cs),
-                                new Runnable() {
+                                null, new Runnable() {
                                     @Override
                                     public void run() {
                                         camera.captureImage(cs, Camera3.PRECAPTURE_CONFIG_NONE,
@@ -194,7 +194,7 @@ public class StillCaptureTests {
         final Camera3 camera = new Camera3(appContext, TestUtils.testErrorHandler);
         final String cameraId = camera.getAvailableCameras().get(0);
 
-        final Size size = camera.getLargestAvailableSize(cameraId, ImageFormat.JPEG);
+        final Size size = camera.getLargestAvailableImageSize(cameraId, ImageFormat.JPEG);
 
         final StillCaptureHandler cs = new StillCaptureHandler(
                 ImageFormat.JPEG, size, new OnImageAvailableListener() {
@@ -223,7 +223,7 @@ public class StillCaptureTests {
         final Camera3 camera = new Camera3(appContext, TestUtils.testErrorHandler);
         final String cameraId = camera.getAvailableCameras().get(0);
 
-        final Size size = camera.getLargestAvailableSize(cameraId, ImageFormat.JPEG);
+        final Size size = camera.getLargestAvailableImageSize(cameraId, ImageFormat.JPEG);
 
         final StillCaptureHandler cs = new StillCaptureHandler(
                 ImageFormat.JPEG, size, new OnImageAvailableListener() {
@@ -238,7 +238,7 @@ public class StillCaptureTests {
         });
 
         camera.startCaptureSession(cameraId, null, Collections.singletonList(cs),
-                new Runnable() {
+                null, new Runnable() {
                     @Override
                     public void run() {
                         new Thread(new Runnable() {
@@ -275,7 +275,7 @@ public class StillCaptureTests {
         final Camera3 camera = new Camera3(appContext, TestUtils.testErrorHandler);
         final String cameraId = camera.getAvailableCameras().get(0);
 
-        final Size size = camera.getLargestAvailableSize(cameraId, ImageFormat.JPEG);
+        final Size size = camera.getLargestAvailableImageSize(cameraId, ImageFormat.JPEG);
 
         final StillCaptureHandler cs = new StillCaptureHandler(
                 ImageFormat.JPEG, size, new OnImageAvailableListener() {

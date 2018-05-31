@@ -9,7 +9,7 @@ import android.hardware.camera2.CaptureRequest;
  * including the targets. Then, an instance of CaptureRequestConfiguration is called so that
  * the user has a chance to specify additional parameters.
  * <p>
- * For precapture, it is recommended to use {@link Camera3#PRECAPTURE_CONFIG_TRIGGER_AUTO_FOCUS}
+ * For precapture, it is recommended to use {@link Camera3#PRECAPTURE_CONFIG_TRIGGER_AUTO_EXPOSE}
  * as a default.
  * <p>
  * For still capture, {@link Camera3#CAPTURE_CONFIG_DEFAULT} provides no additional configuration

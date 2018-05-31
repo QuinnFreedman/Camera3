@@ -8,6 +8,7 @@ import android.hardware.camera2.CaptureResult;
 import android.support.test.InstrumentationRegistry;
 import android.support.test.rule.GrantPermissionRule;
 import android.support.test.runner.AndroidJUnit4;
+import android.util.Log;
 import android.util.Size;
 
 import net.jodah.concurrentunit.Waiter;
@@ -78,7 +79,7 @@ public class PreviewTests {
             @Override
             public void configure(CaptureRequest.Builder request) {
                 request.set(CaptureRequest.CONTROL_EFFECT_MODE,
-                        CaptureRequest.CONTROL_EFFECT_MODE_NEGATIVE);
+                            CaptureRequest.CONTROL_EFFECT_MODE_NEGATIVE);
             }
         };
 

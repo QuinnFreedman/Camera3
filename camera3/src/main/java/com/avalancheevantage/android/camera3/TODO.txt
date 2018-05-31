@@ -1,0 +1,9 @@
+ - figure out why video test doesn't work
+
+ - allow video recording without audio (without mic permissions)
+ - allow recording with custom video size
+ - allow recording with custom output format
+ - look at API, make stills and video apis consistent
+ - video tests
+
+ - better error messages / checking when the provided image or video size is not a valid option for the format

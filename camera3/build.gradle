@@ -1,20 +1,15 @@
 apply plugin: 'com.android.library'
-//apply plugin: 'maven'
-
-ext {
-    PUBLISH_GROUP_ID = 'com.avalancheevantage.android'
-    PUBLISH_ARTIFACT_ID = 'camera3'
-    PUBLISH_VERSION = '0.1.0'
-}
+apply plugin: 'com.jfrog.bintray'
+apply plugin: 'com.github.dcendents.android-maven'
 
 android {
-    compileSdkVersion 26
+    compileSdkVersion 27
 
     defaultConfig {
         minSdkVersion 21
-        targetSdkVersion 26
-        versionCode 1
-        versionName "0.1.0"
+        targetSdkVersion 27
+        versionCode 3
+        versionName "0.2.0"
 
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
 
@@ -32,29 +27,66 @@ android {
 dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar'])
     implementation group: 'org.jetbrains', name: 'annotations', version: '13.0'
-    implementation 'com.android.support:appcompat-v7:26.1.0'
+    implementation 'com.android.support:appcompat-v7:27.1.1'
     testImplementation 'junit:junit:4.12'
     implementation 'net.jodah:concurrentunit:0.4.3'
     androidTestImplementation 'com.android.support.test:runner:1.0.1'
     androidTestImplementation 'com.android.support.test.espresso:espresso-core:3.0.1'
 }
-group = 'com.avalancheevantage.android'
-version = '0.1.0'
 
-task writeNewPom << {
-    pom {
-        project {
-            inceptionYear '2017'
+def libGit = libGit
+def libUrl = libUrl
+def libDescription = libDescription
+def libGroupId = libGroupId
+def libArtifactId = libArtifactId
+
+group = libGroupId
+version = projectVersionName
+
+install {
+    repositories.mavenInstaller {
+        pom.project {
+            name libArtifactId
+            description libDescription
+            url libUrl
+            inceptionYear '2018'
+
+            packaging 'aar'
+            groupId libGroupId
+            artifactId libArtifactId
+            version projectVersionName
+
             licenses {
                 license {
-                    name 'MIT License'
-                    url 'http://www.opensource.org/licenses/mit-license.php'
-                    distribution 'repo'
+                    name 'MIT'
+                    url libLicenseUrl
                 }
             }
         }
-    }.writeTo("pom.xml")
+    }
 }
 
+/*
+bintray_user, bintray_api_key, and bintray_gpg_passphrase should be set in
+your global build.gradle
+ */
 
-apply from: 'https://raw.githubusercontent.com/blundell/release-android-library/master/android-release-aar.gradle'
+bintray {
+    user = bintray_user
+    key = bintray_api_key
+    pkg {
+        repo = libGroupId
+        name = libArtifactId
+//        userOrg = bintray_user_org
+        licenses = ['MIT']
+        vcsUrl = libGit
+        version {
+            name = projectVersionName
+            gpg {
+                sign = true
+                passphrase = bintray_gpg_passphrase
+            }
+        }
+    }
+    configurations = ['archives']
+}
