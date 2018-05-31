@@ -167,7 +167,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View v) {
                 cameraManager.captureImage(captureSession,
-                        Camera3.PRECAPTURE_CONFIG_TRIGGER_AUTO_FOCUS,
+                        Camera3.PRECAPTURE_CONFIG_TRIGGER_AUTO_EXPOSE,
                         Camera3.CAPTURE_CONFIG_DEFAULT);
             }
         });

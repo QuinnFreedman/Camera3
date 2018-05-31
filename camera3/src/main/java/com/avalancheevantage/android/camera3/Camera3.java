@@ -72,7 +72,7 @@ import static java.util.Collections.singletonList;
  * @author Quinn Freedman
  */
 public final class Camera3 {
-    public static final CaptureRequestConfiguration PRECAPTURE_CONFIG_TRIGGER_AUTO_FOCUS =
+    public static final CaptureRequestConfiguration PRECAPTURE_CONFIG_TRIGGER_AUTO_EXPOSE =
             new CaptureRequestConfiguration() {
                 @Override
                 public void configure(CaptureRequest.Builder request) {
@@ -89,6 +89,14 @@ public final class Camera3 {
 
                 }
             };
+//    public static final CaptureRequestConfiguration CAPTURE_CONFIG_FLASH =
+//            new CaptureRequestConfiguration() {
+//                @Override
+//                public void configure(CaptureRequest.Builder request) {
+//                    request.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON);
+//                    request.set(CaptureRequest.FLASH_MODE, CaptureRequest.FLASH_MODE_SINGLE);
+//                }
+//            };
     public static final ErrorHandler ERROR_HANDLER_DEFAULT = null;
     /**
      * Max preview width that is guaranteed by Camera2 API
@@ -712,7 +720,7 @@ public final class Camera3 {
      * @param handler    the {@link StillCaptureHandler} which will be responsible for processing
      *                   the image
      * @param precapture the precapture configuration. Use {@link
-     *                   Camera3#PRECAPTURE_CONFIG_TRIGGER_AUTO_FOCUS}
+     *                   Camera3#PRECAPTURE_CONFIG_TRIGGER_AUTO_EXPOSE}
      *                   to trigger auto focus prior to the image capture or use {@link
      *                   Camera3#PRECAPTURE_CONFIG_NONE} to skip precapture (and use the preview
      *                   focus). This will speed up the capture process.
@@ -954,7 +962,7 @@ public final class Camera3 {
         SurfaceTexture texture = previewHandler.getSurfaceTexture();
         if (requireNotNull(texture, "previewHandler.getSurfaceTexture() is null")) {
             return;
-        }
+    }
 
         // We configure the size of default buffer to be the size of camera preview we want.
         texture.setDefaultBufferSize(previewSize.getWidth(), previewSize.getHeight());

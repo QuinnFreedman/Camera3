@@ -6,6 +6,7 @@ import android.graphics.ImageFormat;
 import android.graphics.SurfaceTexture;
 import android.media.Image;
 import android.os.Looper;
+import android.support.annotation.NonNull;
 import android.support.test.InstrumentationRegistry;
 import android.support.test.rule.GrantPermissionRule;
 import android.support.test.runner.AndroidJUnit4;
@@ -20,6 +21,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import java.io.File;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.concurrent.TimeoutException;
@@ -42,8 +44,6 @@ public class VideoCaptureTests {
             GrantPermissionRule.grant(Manifest.permission.CAMERA,
                                       Manifest.permission.RECORD_AUDIO);
 
-    // Sometimes if these tests run too close to each other they will crash.
-    // I should figure out why but for now this fixes it
     @Before
     public void before() throws Exception {
         Thread.sleep(1000);
@@ -66,31 +66,50 @@ public class VideoCaptureTests {
                 singletonList(vidHandler));
 
         Thread.sleep(1000);
-        camera3.startVideoCapture(vidHandler);
+        final Waiter waiter = new Waiter();
+        camera3.startVideoCapture(vidHandler, null, new VideoCaptureStartedCallback() {
+            @Override
+            public void captureStarted(@NonNull VideoCaptureHandler handler, @NonNull File outputFile) {
+                waiter.assertNotNull(handler);
+                waiter.assertNotNull(outputFile);
+                waiter.resume();
+            }
+        });
         Log.d("TEST", "startVideoCaptureSessionWithoutCrashing: Done");
+        waiter.await(5, SECONDS);
 
     }
 
-//    @Test
-//    public void stopVideoCaptureSessionWithoutPreview() throws Exception {
-//        final Context appContext = InstrumentationRegistry.getTargetContext();
-//
-//        Camera3 camera3 = new Camera3(appContext, TestUtils.testErrorHandler);
-//        String cameraId = camera3.getAvailableCameras().get(0);
-//
-//
-//        Size size = camera3.getLargestAvailableImageSize(cameraId, ImageFormat.JPEG);
-//
-//        //TODO how to get size for video?
-//        VideoCaptureHandler vidHandler = new VideoCaptureHandler(size);
-//
-//        camera3.startCaptureSession(cameraId, null, null,
-//                singletonList(vidHandler));
-//
-//        camera3.startVideoCapture(vidHandler);
-//        Thread.sleep(1000);
-//
-//        camera3.stopVideoCapture(vidHandler);
-//    }
+    @Test
+    public void stopVideoCaptureSessionWithoutPreview() throws Exception {
+        final Context appContext = InstrumentationRegistry.getTargetContext();
+
+        final Camera3 camera3 = new Camera3(appContext, TestUtils.testErrorHandler);
+        String cameraId = camera3.getAvailableCameras().get(0);
+
+
+        Size size = camera3.getLargestAvailableImageSize(cameraId, ImageFormat.JPEG);
+
+        //TODO how to get size for video?
+        final VideoCaptureHandler vidHandler = new VideoCaptureHandler(size);
+
+        camera3.startCaptureSession(cameraId, null, null,
+                singletonList(vidHandler));
+
+        final Waiter waiter = new Waiter();
+        camera3.startVideoCapture(vidHandler, null, new VideoCaptureStartedCallback() {
+            @Override
+            public void captureStarted(@NonNull VideoCaptureHandler handler, @NonNull File outputFile) {
+                camera3.stopVideoCapture(vidHandler);
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    waiter.rethrow(e);
+                }
+                waiter.resume();
+            }
+        });
+
+    }
 }
 

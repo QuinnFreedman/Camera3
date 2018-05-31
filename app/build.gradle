@@ -1,5 +1,4 @@
 apply plugin: 'com.android.application'
-apply plugin: 'kotlin-android'
 
 android {
     compileSdkVersion 27
@@ -34,13 +33,9 @@ dependencies {
     implementation 'com.android.support.constraint:constraint-layout:1.1.0'
     testImplementation 'junit:junit:4.12'
     implementation 'net.jodah:concurrentunit:0.4.3'
-    implementation "org.jetbrains.kotlin:kotlin-stdlib-jre7:$kotlin_version"
-    implementation "org.jetbrains.anko:anko:$anko_version"
     implementation project(path: ':camera3')
 }
 repositories {
     mavenCentral()
     google()
 }
-
-apply plugin: 'kotlin-android-extensions'
