@@ -49,6 +49,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        getSupportActionBar().hide();
         setContentView(R.layout.activity_main);
         final Switch previewSwitch = findViewById(R.id.switch_show_preview);
         previewSwitch.setChecked(mShowPreview);
@@ -145,7 +146,7 @@ public class MainActivity extends AppCompatActivity {
                             private int imageCount = 0;
 
                             @Override
-                            public void onImageAvailable(Image image) {
+                            public boolean onImageAvailable(Image image) {
                                 ++imageCount;
                                 Log.d(TAG, "***********************************************");
                                 Log.d(TAG, "IMAGE AVAILABLE: " + imageCount);
@@ -155,6 +156,7 @@ public class MainActivity extends AppCompatActivity {
                                         Toast.LENGTH_SHORT).show();
                                 lastCapture = createMediaFile("jpg");
                                 cameraManager.saveImage(image, lastCapture);
+                                return true;
                             }
                         });
 

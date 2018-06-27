@@ -107,8 +107,10 @@ public final class StillCaptureHandler {
                         camera3.popRequestQueue();
                         try {
                             Image image = reader.acquireNextImage();
-                            imageAvailableListener.onImageAvailable(image);
-                            image.close();
+                            boolean shouldNotCloseImage = imageAvailableListener.onImageAvailable(image);
+                            if (!shouldNotCloseImage) {
+                                image.close();
+                            }
                         } catch (IllegalStateException e) {
                             camera3.getErrorHandler().error(
                                     "The image queue for this capture session is full. " +

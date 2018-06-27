@@ -10,7 +10,7 @@ repositories {
 ```
 in your `build.gradle` and then add the following in your dependencies:
 ```groovy
-compile 'com.avalancheevantage.android:camera3:0.1.0'
+compile 'com.avalancheevantage.android:camera3:0.3.0'
 ```
 
 Right now, Camera3 only supports preview and still capture functionality. However, it will add video and burst capture support very soon.

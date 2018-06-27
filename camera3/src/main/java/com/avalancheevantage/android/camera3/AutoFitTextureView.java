@@ -19,6 +19,7 @@ import android.graphics.drawable.Drawable;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.TextureView;
+import android.view.ViewGroup;
 
 /**
  * A custom subclass of {@link TextureView} that will automatically adjust its size to fit a given
@@ -94,10 +95,10 @@ public class AutoFitTextureView extends TextureView {
                     //overflow sideways
                     int overflowWidth = height * mRatioWidth / mRatioHeight;
                     setMeasuredDimension(overflowWidth, height);
-//                    int offset = (overflowWidth - width) / 2;
-//                    ViewGroup.MarginLayoutParams params = (ViewGroup.MarginLayoutParams) getLayoutParams();
-//                    params.setMargins(-offset, params.topMargin, -offset, params.bottomMargin);
-//                    setLayoutParams(params);
+                    int offset = (overflowWidth - width) / 2;
+                    ViewGroup.MarginLayoutParams params = (ViewGroup.MarginLayoutParams) getLayoutParams();
+                    params.setMargins(-offset, params.topMargin, -offset, params.bottomMargin);
+                    setLayoutParams(params);
                 }
             } else {
                 if (width < height * mRatioWidth / mRatioHeight) {

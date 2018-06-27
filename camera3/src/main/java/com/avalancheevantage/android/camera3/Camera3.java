@@ -485,8 +485,13 @@ public final class Camera3 {
     }
 
     /**
+     * <p>
      * Resumes the capture session established by the last call to
      * {@link Camera3#startCaptureSession(String, PreviewHandler, List)}
+     * </p><p>
+     * If you're not sure if {@link Camera3#startCaptureSession(String, PreviewHandler, List)} has
+     * been called already or not, you can check with {@link Camera3#captureConfigured()}
+     * </p>
      *
      * @param onSessionRestarted an optional callback that will be called to notify the user when
      *                           the camera has been opened and the capture session has been
@@ -1350,8 +1355,8 @@ public final class Camera3 {
     }
 
     /**
-     * A utility method to synchronously save an image file. The caller must obtain permission to
-     * write to external storage before calling this method.
+     * A utility method to <b>asynchronously</b> save an image file.
+     * The caller must obtain permission to write to external storage before calling this method.
      *
      * @param image the image to save
      * @param file  the file to write to
@@ -1361,12 +1366,7 @@ public final class Camera3 {
             mErrorHandler.error("Unable to save file. This application does not have the " +
                     "required permission: WRITE_EXTERNAL_STORAGE", null);
         }
-        //this is synchronous for now because if you get the image from onImageAvailable it could
-        // be closed
-        // before the ImageSaver runs. onImageAvailable is called in a background thread anyway.
-
-        //mBackgroundHandler.post(new ImageSaver(image, file));
-        new ImageSaver(image, file).run();
+        mBackgroundHandler.post(new ImageSaver(image, file));
     }
 
     /**

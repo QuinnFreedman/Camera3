@@ -82,8 +82,8 @@ public class BasicInstrumentedTest {
                 ImageFormat.JPEG, size,
                 new OnImageAvailableListener() {
                     @Override
-                    public void onImageAvailable(Image image) {
-
+                    public boolean onImageAvailable(Image image) {
+                        return false;
                     }
                 });
 

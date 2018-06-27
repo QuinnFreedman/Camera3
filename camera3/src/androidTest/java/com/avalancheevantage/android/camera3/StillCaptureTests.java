@@ -55,8 +55,8 @@ public class StillCaptureTests {
         StillCaptureHandler cs = new StillCaptureHandler(
                 ImageFormat.JPEG, size, new OnImageAvailableListener() {
             @Override
-            public void onImageAvailable(Image image) {
-
+            public boolean onImageAvailable(Image image) {
+                return false;
             }
         });
 
@@ -77,8 +77,9 @@ public class StillCaptureTests {
         final StillCaptureHandler cs = new StillCaptureHandler(
                 ImageFormat.JPEG, size, new OnImageAvailableListener() {
             @Override
-            public void onImageAvailable(Image image) {
+            public boolean onImageAvailable(Image image) {
                 waiter.resume();
+                return false;
             }
         });
 
@@ -116,8 +117,9 @@ public class StillCaptureTests {
         final StillCaptureHandler cs = new StillCaptureHandler(
                 ImageFormat.JPEG, size, new OnImageAvailableListener() {
             @Override
-            public void onImageAvailable(Image image) {
+            public boolean onImageAvailable(Image image) {
                 waiter.resume();
+                return false;
             }
         });
 
@@ -158,9 +160,10 @@ public class StillCaptureTests {
         final StillCaptureHandler cs = new StillCaptureHandler(
                 ImageFormat.JPEG, size, new OnImageAvailableListener() {
             @Override
-            public void onImageAvailable(Image image) {
+            public boolean onImageAvailable(Image image) {
                 waiter.assertNotNull(image);
                 waiter.resume();
+                return false;
             }
         });
 
@@ -199,8 +202,9 @@ public class StillCaptureTests {
         final StillCaptureHandler cs = new StillCaptureHandler(
                 ImageFormat.JPEG, size, new OnImageAvailableListener() {
             @Override
-            public void onImageAvailable(Image image) {
+            public boolean onImageAvailable(Image image) {
                 waiter.resume();
+                return false;
             }
         });
 
@@ -228,12 +232,13 @@ public class StillCaptureTests {
         final StillCaptureHandler cs = new StillCaptureHandler(
                 ImageFormat.JPEG, size, new OnImageAvailableListener() {
             @Override
-            public void onImageAvailable(Image image) {
+            public boolean onImageAvailable(Image image) {
                 master.assertNotNull(image);
                 synchronized (imagesCaptured) {
                     imagesCaptured[0]++;
                 }
                 waiterWrapper[0].resume();
+                return false;
             }
         });
 
@@ -280,7 +285,7 @@ public class StillCaptureTests {
         final StillCaptureHandler cs = new StillCaptureHandler(
                 ImageFormat.JPEG, size, new OnImageAvailableListener() {
                     @Override
-                    public void onImageAvailable(Image image) {
+                    public boolean onImageAvailable(Image image) {
                         waiter.assertNotNull(image);
                         synchronized (imagesCaptured) {
                             imagesCaptured[0]++;
@@ -289,6 +294,7 @@ public class StillCaptureTests {
                                 waiter.resume();
                             }
                         }
+                        return false;
                     }
                 });
 

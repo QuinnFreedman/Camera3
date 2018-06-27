@@ -29,11 +29,6 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
-        <activity
-                android:name=".ViewImageActivity"
-                android:label="@string/title_activity_view_image"
-                android:theme="@style/AppTheme.NoActionBar">
-        </activity>
     </application>
 
 </manifest>
