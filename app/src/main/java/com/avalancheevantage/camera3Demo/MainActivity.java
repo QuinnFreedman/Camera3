@@ -11,6 +11,8 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.Handler;
+import android.os.HandlerThread;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.content.FileProvider;
@@ -25,6 +27,7 @@ import android.widget.Toast;
 
 import com.avalancheevantage.android.camera3.AutoFitTextureView;
 import com.avalancheevantage.android.camera3.Camera3;
+import com.avalancheevantage.android.camera3.ImageSaver;
 import com.avalancheevantage.android.camera3.OnImageAvailableListener;
 import com.avalancheevantage.android.camera3.PreviewHandler;
 import com.avalancheevantage.android.camera3.StillCaptureHandler;
@@ -41,11 +44,34 @@ public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
     private static final int REQUEST_CAMERA_PERMISSION = 999;
 
+    /**
+     * Initialize the camera3 camera manager
+     */
     private final Camera3 cameraManager = new Camera3(this, Camera3.ERROR_HANDLER_DEFAULT);
+
+    /**
+     * Keep track of the last file we saved an image to so we can preview it.
+     */
     @Nullable
     private File lastCapture;
+
+    /**
+     * Whether or not a camera preview should be shone
+     */
     private boolean mShowPreview = true;
 
+    /**
+     * Keep track of if we are recording video
+     */
+    private boolean recordingVideo = false;
+
+    /**
+     * This just deals with getting the user's permission to access the camera.
+     *
+     * Once we have permission, all the actual camera3 stuff happens in
+     * {@link MainActivity#onPermissionGranted()}
+     *
+     */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -87,12 +113,19 @@ public class MainActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         Log.d(TAG, "onResume");
+        // Restart the camera when the activity is re-opened
         if (cameraManager.captureConfigured()) {
             cameraManager.resume();
         }
 
     }
 
+    /**
+     * Override a built-in Android function so we can be notified when the user
+     * grants us permission to use the camera.
+     *
+     * @see android.app.Activity#onRequestPermissionsResult(int, String[], int[])
+     */
     @Override
     public void onRequestPermissionsResult(int requestCode,
                                            @NonNull String[] permissions,
@@ -109,10 +142,17 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * This function sets up all the camera stuff.
+     *
+     * It is called right away if we already have permission to access the camera
+     * or after permission is approved, otherwise.
+     */
     private void onPermissionGranted() {
         Log.d(TAG, "onPermissionGranted");
         final String cameraId;
         try {
+            // Get the front-facing camera
             cameraId = cameraManager.getAvailableCameras().get(0);
         } catch (CameraAccessException e) {
             e.printStackTrace();
@@ -121,13 +161,20 @@ public class MainActivity extends AppCompatActivity {
         final AutoFitTextureView previewTexture = findViewById(R.id.preview);
         previewTexture.setFill(AutoFitTextureView.STYLE_FILL);
 
+        // Handler to control everything about the preview
         PreviewHandler previewHandler = new PreviewHandler(
+                // The preview will automatically be rendered to this texture
                 previewTexture,
+                // No preferred size
                 null,
+                // No special configuration
                 null,
+                // Once a preview resolution has been selected, this callback will be called
                 new Camera3.PreviewSizeCallback() {
                     @Override
                     public void previewSizeSelected(int orientation, Size size) {
+                        // Once the preview size has been determined, scale the preview
+                        // TextureView accordingly
                         Log.d(TAG, "preview size == " + size);
                         if (orientation == Configuration.ORIENTATION_LANDSCAPE) {
                             previewTexture.setAspectRatio(
@@ -139,6 +186,8 @@ public class MainActivity extends AppCompatActivity {
                     }
                 }
         );
+
+        // Handler to control everything about still image captures
         final StillCaptureHandler captureSession =
                 new StillCaptureHandler(ImageFormat.JPEG,
                         cameraManager.getLargestAvailableImageSize(cameraId, ImageFormat.JPEG),
@@ -154,6 +203,11 @@ public class MainActivity extends AppCompatActivity {
                                 Toast.makeText(MainActivity.this,
                                         "Image Captured! " + imageCount,
                                         Toast.LENGTH_SHORT).show();
+
+                                // Delete the old file, if there is one
+                                if (lastCapture != null) {
+                                    lastCapture.delete();
+                                }
                                 lastCapture = createMediaFile("jpg");
                                 cameraManager.saveImage(image, lastCapture);
                                 return true;
@@ -190,6 +244,10 @@ public class MainActivity extends AppCompatActivity {
                                     Toast.makeText(MainActivity.this,
                                             "Started recording video to " + outputFile,
                                             Toast.LENGTH_LONG).show();
+                                    // Delete the old file
+                                    if (lastCapture != null) {
+                                        lastCapture.delete();
+                                    }
                                     lastCapture = outputFile;
                                 }
                             });
@@ -217,8 +275,6 @@ public class MainActivity extends AppCompatActivity {
             }
         });
     }
-
-    private boolean recordingVideo = false;
 
     @Override
     protected void onPause() {

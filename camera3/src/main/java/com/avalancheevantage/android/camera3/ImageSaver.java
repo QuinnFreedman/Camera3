@@ -21,20 +21,23 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 
 /**
- * Saves a JPEG {@link Image} into the specified {@link File}.
+ * A utility runnable for saving a JPEG {@link Image} into the specified {@link File}.
  */
-class ImageSaver implements Runnable {
-
-    /**
-     * The JPEG image
-     */
+public class ImageSaver implements Runnable {
     private final Image mImage;
-    /**
-     * The file we save the image into.
-     */
     private final File mFile;
 
-    ImageSaver(Image image, File file) {
+    /**
+     * Constructs a new ImageSaver with the given parameters.
+     *
+     * <p>Note: If permission {@link android.Manifest.permission#WRITE_EXTERNAL_STORAGE} is
+     * needed to write to the given file, it must be obtained before calling
+     * {@link ImageSaver#run()}</p>
+     *
+     * @param image The JPEG image
+     * @param file The file we save the image into.
+     */
+    public ImageSaver(Image image, File file) {
         mImage = image;
         mFile = file;
     }

@@ -17,6 +17,7 @@ package com.avalancheevantage.android.camera3;
 import android.Manifest;
 import android.app.Activity;
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.SurfaceTexture;
 import android.hardware.camera2.CameraAccessException;
@@ -58,6 +59,7 @@ import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
+import static android.content.pm.PackageManager.PERMISSION_GRANTED;
 import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
 
@@ -234,8 +236,8 @@ public final class Camera3 {
                     case WAITING_NON_PRECAPTURE: {
                         // CONTROL_AE_STATE can be null on some devices
                         Integer aeState = result.get(CaptureResult.CONTROL_AE_STATE);
-                        if (aeState == null || aeState != CaptureResult
-                                .CONTROL_AE_STATE_PRECAPTURE) {
+                        if (aeState == null ||
+                                aeState != CaptureResult.CONTROL_AE_STATE_PRECAPTURE) {
                             captureStillPicture();
                         }
                         break;
@@ -1289,12 +1291,17 @@ public final class Camera3 {
      * @return an unmodifiable Collection of all the supported sizes
      */
     @NonNull
-    public Collection<Size> getAvailableImageSizes(@NonNull String cameraId, int format) {
+    public List<Size> getAvailableImageSizes(@NonNull String cameraId, int format) {
 
         StreamConfigurationMap map = getConfigurationMap(cameraId);
 
-        return map == null ? Collections.<Size>emptySet() :
-                Collections.unmodifiableCollection(asList(map.getOutputSizes(format)));
+        if (map == null) return Collections.emptyList();
+
+        Size[] sizes = map.getOutputSizes(format);
+
+        if (sizes == null) return Collections.emptyList();
+
+        return Collections.unmodifiableList(asList(sizes));
     }
 
     /**
@@ -1356,16 +1363,13 @@ public final class Camera3 {
 
     /**
      * A utility method to <b>asynchronously</b> save an image file.
-     * The caller must obtain permission to write to external storage before calling this method.
+     * The caller must obtain permission to write to external storage (if necessary)
+     * before calling this method.
      *
      * @param image the image to save
      * @param file  the file to write to
      */
     public void saveImage(Image image, File file) {
-        if (!hasWritePermission()) {
-            mErrorHandler.error("Unable to save file. This application does not have the " +
-                    "required permission: WRITE_EXTERNAL_STORAGE", null);
-        }
         mBackgroundHandler.post(new ImageSaver(image, file));
     }
 
@@ -1378,7 +1382,7 @@ public final class Camera3 {
     @SuppressWarnings("JavadocReference")
     public boolean hasCameraPermission() {
         return ContextCompat.checkSelfPermission(mContext, Manifest.permission.CAMERA)
-                == PackageManager.PERMISSION_GRANTED;
+                == PERMISSION_GRANTED;
     }
 
     /**
@@ -1390,7 +1394,7 @@ public final class Camera3 {
     @SuppressWarnings("JavadocReference")
     public boolean hasMicrophonePermission() {
         return ContextCompat.checkSelfPermission(mContext, Manifest.permission.RECORD_AUDIO)
-                == PackageManager.PERMISSION_GRANTED;
+                == PERMISSION_GRANTED;
     }
 
     /**
@@ -1403,7 +1407,7 @@ public final class Camera3 {
     public boolean hasWritePermission() {
         return ContextCompat.checkSelfPermission(mContext, Manifest.permission
                 .WRITE_EXTERNAL_STORAGE)
-                == PackageManager.PERMISSION_GRANTED;
+                == PERMISSION_GRANTED;
     }
 
     enum CameraState {

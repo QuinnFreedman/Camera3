@@ -182,7 +182,7 @@ final public class PreviewHandler {
 
     @Contract(pure = true)
     boolean usesCustomRequest() {
-        return this.requestConfig == null;
+        return this.requestConfig != null;
     }
 
     @Contract(pure = true)

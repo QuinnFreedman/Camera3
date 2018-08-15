@@ -78,8 +78,8 @@ public class PreviewTests {
         CaptureRequestConfiguration config = new CaptureRequestConfiguration() {
             @Override
             public void configure(CaptureRequest.Builder request) {
-                request.set(CaptureRequest.CONTROL_EFFECT_MODE,
-                            CaptureRequest.CONTROL_EFFECT_MODE_NEGATIVE);
+                request.set(CaptureRequest.CONTROL_AF_MODE,
+                            CaptureRequest.CONTROL_AF_MODE_OFF);
             }
         };
 
@@ -87,6 +87,9 @@ public class PreviewTests {
                 new SurfaceTexture(1),
                 new Size(200, 200),
                 config);
+
+        waiter.assertTrue(previewHandler.usesCustomRequest());
+
         String cameraId = camera.getAvailableCameras().get(0);
         camera.setCaptureResultListener(new CaptureResultListener() {
             @Override
@@ -94,8 +97,8 @@ public class PreviewTests {
                 if (state == Camera3.CameraState.PREVIEW) {
                     waiter.assertNotNull(result);
                     waiter.assertEquals(
-                            CaptureRequest.CONTROL_EFFECT_MODE_NEGATIVE,
-                            result.get(CaptureResult.CONTROL_EFFECT_MODE));
+                            CaptureRequest.CONTROL_AF_MODE_OFF,
+                            result.get(CaptureResult.CONTROL_AF_MODE));
 
                     waiter.resume();
                 }
