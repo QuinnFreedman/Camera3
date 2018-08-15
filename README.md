@@ -10,7 +10,7 @@ repositories {
 ```
 in your `build.gradle` and then add the following in your dependencies:
 ```groovy
-compile 'com.avalancheevantage.android:camera3:0.3.0'
+compile 'com.avalancheevantage.android:camera3:0.3.1'
 ```
 
 Right now, Camera3 only supports preview and still capture functionality. However, it will add video and burst capture support very soon.
@@ -39,8 +39,11 @@ PreviewHandler preview = new PreviewHandler(previewTextureView);
 StillCaptureHandler capture = new StillCaptureHandler(ImageFormat.JPEG, imageSize,
         new OnImageAvaiableListener {
             @Override
-            void onImageAvailable(Image image) {
+            boolean onImageAvailable(Image image) {
                 Log.d(TAG, "Image captured: "+image);
+                
+                // return true if you want to keep the image open
+                return false;
             }
         });
         
