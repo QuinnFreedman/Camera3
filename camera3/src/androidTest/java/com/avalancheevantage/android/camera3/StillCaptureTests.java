@@ -2,7 +2,10 @@ package com.avalancheevantage.android.camera3;
 
 import android.Manifest;
 import android.content.Context;
+import android.graphics.Camera;
 import android.graphics.ImageFormat;
+import android.graphics.SurfaceTexture;
+import android.hardware.camera2.CaptureResult;
 import android.media.Image;
 import android.support.test.InstrumentationRegistry;
 import android.support.test.rule.GrantPermissionRule;
@@ -19,6 +22,7 @@ import org.junit.runner.RunWith;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.concurrent.TimeoutException;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -306,5 +310,63 @@ public class StillCaptureTests {
 
         waiter.await();
         assertEquals(NUM_IMAGES, imagesCaptured[0]);
+    }
+
+    @Test
+    public void captureResultListener() throws Exception {
+        final Context appContext = InstrumentationRegistry.getTargetContext();
+        final Waiter waiter = new Waiter();
+
+        final HashMap<Camera3.CameraState, Boolean> stateHasBeenReported = new HashMap<>();
+        for (Camera3.CameraState state : Camera3.CameraState.values()) {
+            stateHasBeenReported.put(state, false);
+        }
+
+        final Camera3 camera = new Camera3(appContext, TestUtils.testErrorHandler);
+        final String cameraId = camera.getAvailableCameras().get(0);
+
+        final Size size = camera.getLargestAvailableImageSize(cameraId, ImageFormat.JPEG);
+
+        final StillCaptureHandler handler = new StillCaptureHandler(
+                ImageFormat.JPEG, size, new OnImageAvailableListener() {
+            @Override
+            public boolean onImageAvailable(Image image) {
+                waiter.resume();
+                return false;
+            }
+        });
+        PreviewHandler previewHandler = new PreviewHandler(
+                new SurfaceTexture(1),
+                new Size(200, 200));
+
+        camera.setCaptureResultListener(new CaptureResultListener() {
+            @Override
+            public void onResult(Camera3.CameraState state, CaptureResult result) {
+                stateHasBeenReported.put(state, true);
+            }
+        });
+
+        camera.startCaptureSession(cameraId, previewHandler, Arrays.asList(handler),
+                null, new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            Thread.sleep(200);
+                        } catch (InterruptedException e) {
+                            waiter.rethrow(e);
+                        }
+                        camera.captureImage(handler, Camera3.PRECAPTURE_CONFIG_TRIGGER_AUTO_EXPOSE,
+                                Camera3.CAPTURE_CONFIG_DEFAULT);
+                    }
+                });
+
+
+        waiter.await(5, SECONDS);
+        assertTrue(stateHasBeenReported.get(Camera3.CameraState.PREVIEW));
+        assertTrue(stateHasBeenReported.get(Camera3.CameraState.WAITING_FOCUS_LOCK));
+        assertTrue(stateHasBeenReported.get(Camera3.CameraState.WAITING_PRECAPTURE));
+        assertTrue(stateHasBeenReported.get(Camera3.CameraState.WAITING_NON_PRECAPTURE));
+        assertTrue(stateHasBeenReported.get(Camera3.CameraState.CAPTURE_COMPLETED));
+
     }
 }

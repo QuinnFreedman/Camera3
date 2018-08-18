@@ -5,7 +5,6 @@ import android.media.ImageReader;
 import android.os.Handler;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
-import android.util.Log;
 import android.util.Size;
 
 import org.jetbrains.annotations.Contract;
@@ -103,7 +102,6 @@ public final class StillCaptureHandler {
                 new ImageReader.OnImageAvailableListener() {
                     @Override
                     public void onImageAvailable(ImageReader reader) {
-                        Log.d("StillCaptureHandler", "Image available");
                         camera3.popRequestQueue();
                         try {
                             Image image = reader.acquireNextImage();

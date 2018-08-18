@@ -11,8 +11,6 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
-import android.os.Handler;
-import android.os.HandlerThread;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.content.FileProvider;
@@ -27,7 +25,6 @@ import android.widget.Toast;
 
 import com.avalancheevantage.android.camera3.AutoFitTextureView;
 import com.avalancheevantage.android.camera3.Camera3;
-import com.avalancheevantage.android.camera3.ImageSaver;
 import com.avalancheevantage.android.camera3.OnImageAvailableListener;
 import com.avalancheevantage.android.camera3.PreviewHandler;
 import com.avalancheevantage.android.camera3.StillCaptureHandler;

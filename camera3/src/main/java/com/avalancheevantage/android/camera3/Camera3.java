@@ -1207,7 +1207,10 @@ public final class Camera3 {
                 public void onCaptureCompleted(@NonNull CameraCaptureSession session,
                                                @NonNull CaptureRequest request,
                                                @NonNull TotalCaptureResult result) {
-                    mErrorHandler.info("Capture Completed. result == " + result);
+//                    mErrorHandler.info("Capture Completed. result == " + result);
+                    if (mCaptureResultListener != null) {
+                        mCaptureResultListener.onResult(CameraState.CAPTURE_COMPLETED, result);
+                    }
                     unlockFocus();
                 }
             };
@@ -1410,7 +1413,7 @@ public final class Camera3 {
                 == PERMISSION_GRANTED;
     }
 
-    enum CameraState {
+    public enum CameraState {
         //Waiting for the camera to open
         WAITING_CAMERA_OPEN,
         //Showing camera preview
@@ -1422,7 +1425,10 @@ public final class Camera3 {
         //Waiting for the exposure state to be something other than precapture
         WAITING_NON_PRECAPTURE,
         //Recording video. May also be showing preview
-        RECORDING_VIDEO
+        RECORDING_VIDEO,
+        // not really a state. just passed to captureResultListener after an
+        // image is captured.
+        CAPTURE_COMPLETED
     }
 
     public interface PreviewSizeCallback {
