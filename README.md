@@ -13,7 +13,7 @@ in your `build.gradle` and then add the following in your dependencies:
 compile 'com.avalancheevantage.android:camera3:0.3.1'
 ```
 
-Right now, Camera3 only supports preview and still capture functionality. However, it will add video and burst capture support very soon.
+Right now, Camera3 supports preview and still capture functionality with experemental (but pretty much working) support for video capture. Burst capture support is comming soon.
 
 ## Why Camera3?
 The current Android API ([Camera2](https://developer.android.com/reference/android/hardware/camera2/package-summary.html)) is notoriously bad. Using it requires an elaborate ceremony of callbacks and listeners. Google's official "basic" example using camera2 is [over 1000 lines long](https://github.com/googlesamples/android-Camera2Basic/blob/master/Application/src/main/java/com/example/android/camera2basic/Camera2BasicFragment.java), just to take a simple picture.
