@@ -2,9 +2,9 @@ package com.avalancheevantage.android.camera3;
 
 import android.Manifest;
 import android.content.Context;
-import android.graphics.Camera;
 import android.graphics.ImageFormat;
 import android.graphics.SurfaceTexture;
+import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.CaptureResult;
 import android.media.Image;
 import android.support.test.InstrumentationRegistry;
@@ -368,5 +368,75 @@ public class StillCaptureTests {
         assertTrue(stateHasBeenReported.get(Camera3.CameraState.WAITING_NON_PRECAPTURE));
         assertTrue(stateHasBeenReported.get(Camera3.CameraState.CAPTURE_COMPLETED));
 
+    }
+
+    @Test
+    public void captureImageWithLockedFocus() throws Exception {
+        final Context appContext = InstrumentationRegistry.getTargetContext();
+        final Waiter waiter1 = new Waiter();
+        final Waiter waiter2 = new Waiter();
+
+
+        final Camera3 camera = new Camera3(appContext, TestUtils.testErrorHandler);
+        final String cameraId = camera.getAvailableCameras().get(0);
+
+        final Size size = camera.getLargestAvailableImageSize(cameraId, ImageFormat.JPEG);
+
+        final StillCaptureHandler handler = new StillCaptureHandler(
+                ImageFormat.JPEG, size, new OnImageAvailableListener() {
+            @Override
+            public boolean onImageAvailable(Image image) {
+                waiter1.resume();
+                return false;
+            }
+        });
+        PreviewHandler previewHandler = new PreviewHandler(
+                new SurfaceTexture(1),
+                new Size(200, 200),
+                new CaptureRequestConfiguration() {
+                    @Override
+                    public void configure(CaptureRequest.Builder request) {
+                        request.set(CaptureRequest.CONTROL_AF_MODE,
+                                CaptureRequest.CONTROL_AF_MODE_OFF);
+                        request.set(CaptureRequest.LENS_FOCUS_DISTANCE, 1.0f);
+                    }
+                }
+        );
+
+        camera.setCaptureResultListener(new CaptureResultListener() {
+            @Override
+            public void onResult(Camera3.CameraState state, CaptureResult result) {
+                waiter1.assertEquals(CaptureResult.CONTROL_AF_MODE_OFF,
+                        result.get(CaptureResult.CONTROL_AF_MODE));
+                Float focusDistance = result.get(CaptureResult.LENS_FOCUS_DISTANCE);
+                // focus distance does not exist on all types of CaptureResult
+                if (focusDistance != null) {
+                    waiter1.assertEquals(1.0f, focusDistance);
+                }
+                if (state == Camera3.CameraState.CAPTURE_COMPLETED) {
+                    waiter2.resume();
+                }
+            }
+        });
+
+        camera.startCaptureSession(cameraId, previewHandler, Arrays.asList(handler),
+                null, new Runnable() {
+                    @Override
+                    public void run() {
+                        camera.captureImage(handler, Camera3.PRECAPTURE_CONFIG_TRIGGER_AUTO_EXPOSE,
+                                new CaptureRequestConfiguration() {
+                                    @Override
+                                    public void configure(CaptureRequest.Builder request) {
+                                        request.set(CaptureRequest.CONTROL_AF_MODE,
+                                                CaptureRequest.CONTROL_AF_MODE_OFF);
+                                        request.set(CaptureRequest.LENS_FOCUS_DISTANCE, 1.0f);
+                                    }
+                                });
+                    }
+                });
+
+
+        waiter1.await(5, SECONDS);
+        waiter2.await(5, SECONDS);
     }
 }

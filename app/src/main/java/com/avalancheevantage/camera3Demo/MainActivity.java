@@ -211,8 +211,7 @@ public class MainActivity extends AppCompatActivity {
                             }
                         });
 
-        final VideoCaptureHandler videoSession = new VideoCaptureHandler(
-                cameraManager.getDefaultVideoSize(cameraId));
+        final VideoCaptureHandler videoSession = new VideoCaptureHandler(cameraManager.getDefaultVideoSize(cameraId));
 
         cameraManager.startCaptureSession(cameraId, mShowPreview ? previewHandler : null,
                 Collections.singletonList(captureSession), Collections.singletonList(videoSession));

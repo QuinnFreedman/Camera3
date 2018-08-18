@@ -170,14 +170,23 @@ public final class Camera3 {
                 }
 
                 switch (mState) {
-                    case PREVIEW: {
+                    case WAITING_CAMERA_OPEN:
+                    case RECORDING_VIDEO:
+                    case PREVIEW:
                         //do nothing
                         break;
-                    }
+
                     case WAITING_FOCUS_LOCK: {
                         Integer afState = result.get(CaptureResult.CONTROL_AF_STATE);
-                        if (afState == null) {
-                            mErrorHandler.info("AF State was null, moving to capture image");
+                        if (afState == null || afState == CaptureResult.CONTROL_AF_STATE_INACTIVE) {
+                            mErrorHandler.info(
+                                    "Auto-focus state was null or auto-focus was inactive. " +
+                                            "Moving to capture image");
+                            // Improvement: when auto focus is disabled, it takes one extra frame
+                            // to capture an image because we just set the state to
+                            // WAITING_FOCUS_LOCK and then wait to take the picture here
+                            // instead of calling captureStillPicture() right away.
+                            // Maybe change this??
                             captureStillPicture();
                         } else if (afState == CaptureResult.CONTROL_AF_STATE_FOCUSED_LOCKED ||
                                 afState == CaptureResult.CONTROL_AF_STATE_NOT_FOCUSED_LOCKED) {
