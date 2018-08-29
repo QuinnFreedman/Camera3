@@ -39,11 +39,10 @@ PreviewHandler preview = new PreviewHandler(previewTextureView);
 StillCaptureHandler capture = new StillCaptureHandler(ImageFormat.JPEG, imageSize,
         new OnImageAvaiableListener {
             @Override
-            boolean onImageAvailable(Image image) {
+            ImageAction onImageAvailable(Image image) {
                 Log.d(TAG, "Image captured: "+image);
                 
-                // return true if you want to keep the image open
-                return false;
+                return ImageAction.CLOSE_IMAGE;
             }
         });
         

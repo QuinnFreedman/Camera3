@@ -27,7 +27,7 @@ public interface OnImageAvailableListener {
      * a reference to the image past the lifetime of this function call, you should return
      * {@link ImageAction#KEEP_IMAGE_OPEN}.
      * </p><p>
-     * Node: this method will only be called from a background handler thread,
+     * Note: this method will only be called from a background handler thread,
      * so unless you want to do something very intensive with the image, you can just do
      * whatever you need to do inline.
      * </p>
