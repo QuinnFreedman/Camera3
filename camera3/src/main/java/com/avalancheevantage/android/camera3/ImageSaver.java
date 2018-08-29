@@ -26,6 +26,23 @@ import java.nio.ByteBuffer;
 public class ImageSaver implements Runnable {
     private final Image mImage;
     private final File mFile;
+    private final boolean mShouldCloseImage;
+
+    /**
+     * Constructs a new ImageSaver with the given parameters.
+     *
+     * The Image object will be closed after it is saved.
+     *
+     * <p>Note: If permission {@link android.Manifest.permission#WRITE_EXTERNAL_STORAGE} is
+     * needed to write to the given file, it must be obtained before calling
+     * {@link ImageSaver#run()}</p>
+     *
+     * @param image The JPEG image
+     * @param file The file we save the image into.
+     */
+    public ImageSaver(Image image, File file) {
+        this(image, file, true);
+    }
 
     /**
      * Constructs a new ImageSaver with the given parameters.
@@ -36,10 +53,13 @@ public class ImageSaver implements Runnable {
      *
      * @param image The JPEG image
      * @param file The file we save the image into.
+     * @param shouldCloseImage whether or not the Image should be {@link Image#close()}d after
+     *                         it is saved.
      */
-    public ImageSaver(Image image, File file) {
+    public ImageSaver(Image image, File file, boolean shouldCloseImage) {
         mImage = image;
         mFile = file;
+        mShouldCloseImage = shouldCloseImage;
     }
 
     @Override
@@ -54,7 +74,9 @@ public class ImageSaver implements Runnable {
         } catch (IOException e) {
             e.printStackTrace();
         } finally {
-            mImage.close();
+            if (mShouldCloseImage) {
+                mImage.close();
+            }
             if (null != output) {
                 try {
                     output.close();

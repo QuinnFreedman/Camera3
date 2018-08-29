@@ -105,8 +105,9 @@ public final class StillCaptureHandler {
                         camera3.popRequestQueue();
                         try {
                             Image image = reader.acquireNextImage();
-                            boolean shouldNotCloseImage = imageAvailableListener.onImageAvailable(image);
-                            if (!shouldNotCloseImage) {
+                            OnImageAvailableListener.ImageAction whatToDo =
+                                    imageAvailableListener.onImageAvailable(image);
+                            if (whatToDo == OnImageAvailableListener.ImageAction.CLOSE_IMAGE) {
                                 image.close();
                             }
                         } catch (IllegalStateException e) {

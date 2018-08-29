@@ -17,8 +17,6 @@ package com.avalancheevantage.android.camera3;
 import android.Manifest;
 import android.app.Activity;
 import android.content.Context;
-import android.content.Intent;
-import android.content.pm.PackageManager;
 import android.graphics.SurfaceTexture;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCaptureSession;
@@ -1374,15 +1372,32 @@ public final class Camera3 {
     }
 
     /**
-     * A utility method to <b>asynchronously</b> save an image file.
+     * A utility method to <b>asynchronously</b> save an image file. The image will
+     * be closed once it is saved.
+     *
      * The caller must obtain permission to write to external storage (if necessary)
      * before calling this method.
      *
      * @param image the image to save
      * @param file  the file to write to
+     *
+     * @see Camera3#saveImageSync(Image, File)
      */
-    public void saveImage(Image image, File file) {
-        mBackgroundHandler.post(new ImageSaver(image, file));
+    public void saveImageAsync(Image image, File file) {
+        //TODO mBackgroundHandler might be busy handling preview requests. maybe use another thread?
+        mBackgroundHandler.post(new ImageSaver(image, file, true));
+    }
+
+    /**
+     * A utility method to <b>synchronously</b> save an image file. The image will
+     * <b>not</b> be closed by this method; it must be closed by the user after
+     * this function returns
+     *
+     * @param image the image to save
+     * @param file  the file to write to
+     */
+    public void saveImageSync(Image image, File file) {
+        new ImageSaver(image, file, false).run();
     }
 
     /**
