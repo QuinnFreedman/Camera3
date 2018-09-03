@@ -6,7 +6,6 @@ import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.graphics.ImageFormat;
 import android.hardware.camera2.CameraAccessException;
-import android.hardware.camera2.CaptureRequest;
 import android.media.Image;
 import android.net.Uri;
 import android.os.Build;
@@ -26,7 +25,6 @@ import android.widget.Toast;
 
 import com.avalancheevantage.android.camera3.AutoFitTextureView;
 import com.avalancheevantage.android.camera3.Camera3;
-import com.avalancheevantage.android.camera3.CaptureRequestConfiguration;
 import com.avalancheevantage.android.camera3.OnImageAvailableListener;
 import com.avalancheevantage.android.camera3.PreviewHandler;
 import com.avalancheevantage.android.camera3.StillCaptureHandler;
@@ -220,14 +218,6 @@ public class MainActivity extends AppCompatActivity {
         findViewById(R.id.capture).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                final CaptureRequestConfiguration config =
-                        new CaptureRequestConfiguration() {
-                            @Override
-                            public void configure(CaptureRequest.Builder request) {
-                                request.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON);
-                                request.set(CaptureRequest.FLASH_MODE, CaptureRequest.FLASH_MODE_SINGLE);
-                            }
-                        };
                 cameraManager.captureImage(captureSession,
                         Camera3.PRECAPTURE_CONFIG_TRIGGER_AUTO_EXPOSE,
                         Camera3.CAPTURE_CONFIG_DEFAULT);
