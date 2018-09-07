@@ -52,7 +52,7 @@ camera.startCameraSession(cameraId, preview, Arrays.asList(capture));
 Then, later, you can can capture an image with just one line:
 
 ```java
-camera.captureImage(capture, Camera3.PRECAPTURE_CONFIG_TRIGGER_AUTO_FOCUS, Camera3.CAPTURE_CONFIG_DEFAULT);
+camera.captureImage(capture, Camera3.PRECAPTURE_CONFIG_TRIGGER_AUTO_EXPOSE, Camera3.CAPTURE_CONFIG_DEFAULT);
 ```
 
 Of course, if you want more control, you can specify your own configurations and add additional listeners, instead of using the minimum defaluts.
