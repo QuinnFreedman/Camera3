@@ -76,7 +76,6 @@ public final class Camera3 {
             new CaptureRequestConfiguration() {
                 @Override
                 public void configure(CaptureRequest.Builder request) {
-                    // This is how to tell the camera to trigger auto exposure.
                     request.set(CaptureRequest.CONTROL_AE_PRECAPTURE_TRIGGER,
                             CaptureRequest.CONTROL_AE_PRECAPTURE_TRIGGER_START);
                 }
@@ -89,14 +88,14 @@ public final class Camera3 {
 
                 }
             };
-    //    public static final CaptureRequestConfiguration CAPTURE_CONFIG_FLASH =
-//            new CaptureRequestConfiguration() {
-//                @Override
-//                public void configure(CaptureRequest.Builder request) {
-//                    request.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON);
-//                    request.set(CaptureRequest.FLASH_MODE, CaptureRequest.FLASH_MODE_SINGLE);
-//                }
-//            };
+    //    public static final CaptureRequestConfiguration CAPTURE_CONFIG_AE_FLASH =
+//        new CaptureRequestConfiguration() {
+//            @Override
+//            public void configure(CaptureRequest.Builder request) {
+//                request.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON);
+//                request.set(CaptureRequest.FLASH_MODE, CaptureRequest.FLASH_MODE_SINGLE);
+//            }
+//        };
     public static final ErrorHandler ERROR_HANDLER_DEFAULT = null;
     /**
      * Max preview width that is guaranteed by Camera2 API
@@ -342,6 +341,38 @@ public final class Camera3 {
         }
 
     };
+
+    /*
+    private BlockingQueue<CaptureRequestConfiguration> scheduledConfigUpdates =
+            new LinkedBlockingDeque<>();
+
+    public void applyPreviewEffect(@NonNull CaptureRequestConfiguration config) {
+        // Update preview request
+        config.configure(mPreviewRequestBuilder);
+        mPreviewRequest = mPreviewRequestBuilder.build();
+
+        if (mState == CameraState.PREVIEW) {
+            mErrorHandler.info("Updating preview");
+            try {
+                mCaptureSession.setRepeatingRequest(mPreviewRequest,
+                        mCaptureCallback, mBackgroundHandler);
+            } catch (CameraAccessException e) {
+                reportCameraAccessException(e);
+            }
+        } else {
+            mErrorHandler.info("Preview onUpdated requested. The camera is in the" +
+                    "middle of completing some other request right now. The update" +
+                    "should be made as soon as preview resumes");
+            try {
+                scheduledConfigUpdates.put(config);
+            } catch (InterruptedException e) {
+                mErrorHandler.error("Interrupted while enqueuing preview " +
+                        "update in blocking queue", e);
+            }
+        }
+
+    }
+    */
 
 
     /**
@@ -680,6 +711,7 @@ public final class Camera3 {
                     if (mSession.getPreview() != null) {
                         try {
                             mCaptureSession.setRepeatingRequest(mPreviewRequestBuilder.build(),
+                                    /*TODO maybe we should call the user callback here */
                                     null, mBackgroundHandler);
                         } catch (CameraAccessException e) {
                             reportCameraAccessException(e);
@@ -706,7 +738,7 @@ public final class Camera3 {
     /**
      * Stops video recording. Video recording must have already started.
      * <p>
-     * Note: the starting video recording is asyncronous so if you stop immediately after you stop
+     * Note: the starting video recording is asyncronous so if you stop immediately after you start
      * this method may cause an IllegalStateException
      *
      * @param handler the handler that is currently recording video
@@ -966,38 +998,18 @@ public final class Camera3 {
         if (requireNotNull(previewHandler, "Internal error: previewHandler is null")) {
             return;
         }
-        Size previewSize = previewHandler.getPreviewSize();
-        if (requireNotNull(previewSize, "Internal error: previewHandler.previewSize is null")) {
-            return;
-        }
 
-        SurfaceTexture texture = previewHandler.getSurfaceTexture();
-        if (requireNotNull(texture, "previewHandler.getSurfaceTexture() is null")) {
-            return;
-        }
+        previewHandler.init(mErrorHandler);
+        mPreviewRequestBuilder =
+                previewHandler.configureCaptureRequest(mCameraDevice, mErrorHandler);
 
-        // We configure the size of default buffer to be the size of camera preview we want.
-        texture.setDefaultBufferSize(previewSize.getWidth(), previewSize.getHeight());
 
-        // This is the output Surface we need to start preview.
-        Surface surface = new Surface(texture);
-        if (!surface.isValid()) {
-            mErrorHandler.warning("Internal Error: preview surface is not valid");
-        }
+        // Create a CameraCaptureSession for camera preview.
+        List<Surface> targetSurfaces = new ArrayList<>(Collections.singletonList(previewHandler.getTargetSurface()));
+        targetSurfaces.addAll(getCaptureTargetSurfaces());
 
+        mErrorHandler.info("preview target surfaces: " + targetSurfaces);
         try {
-            // We set up a CaptureRequest.Builder with the output Surface.
-            mPreviewRequestBuilder =
-                    mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
-            previewHandler.configureCaptureRequest(mPreviewRequestBuilder);
-            mPreviewRequestBuilder.addTarget(surface);
-
-
-            // Create a CameraCaptureSession for camera preview.
-            List<Surface> targetSurfaces = new ArrayList<>(singletonList(surface));
-            targetSurfaces.addAll(getCaptureTargetSurfaces());
-
-            Log.d(TAG, "target surfaces == " + targetSurfaces);
             mCameraDevice.createCaptureSession(targetSurfaces,
                     new CameraCaptureSession.StateCallback() {
 
@@ -1011,16 +1023,17 @@ public final class Camera3 {
 
                             // When the session is ready, we start displaying the preview.
                             mCaptureSession = cameraCaptureSession;
-                            try {
-                                //previewHandler.getRequestConfig() will never be null at this point
-                                if (!previewHandler.usesCustomRequest()) {
-                                    // Auto focus should be continuous for camera preview.
-                                    mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_MODE,
-                                            CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
-                                }
 
+                            //previewHandler.getRequestConfig() will never be null at this point
+                            if (!previewHandler.usesCustomRequest()) {
+                                // Auto focus should be continuous for camera preview.
+                                mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_MODE,
+                                        CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
+                            }
+                            mPreviewRequest = mPreviewRequestBuilder.build();
+
+                            try {
                                 // Finally, we start displaying the camera preview.
-                                mPreviewRequest = mPreviewRequestBuilder.build();
                                 mCaptureSession.setRepeatingRequest(mPreviewRequest,
                                         mCaptureCallback, mBackgroundHandler);
                                 onSessionStarted();
@@ -1297,7 +1310,7 @@ public final class Camera3 {
      * Get all supported image sizes for the given image format and camera
      *
      * @param cameraId the id of the camera form {@link Camera3#getAvailableCameras()}
-     * @param format one of {@link android.graphics.ImageFormat}
+     * @param format   one of {@link android.graphics.ImageFormat}
      * @return an unmodifiable Collection of all the supported sizes
      */
     @NonNull
@@ -1318,11 +1331,10 @@ public final class Camera3 {
      * Gets the largest image dimensions (by area) that the given camera is able to take in the
      * given format
      *
-     * @param cameraId the id of the camera form {@link Camera3#getAvailableCameras()}
+     * @param cameraId    the id of the camera form {@link Camera3#getAvailableCameras()}
      * @param imageFormat one of {@link android.graphics.ImageFormat}
      * @return the largest {@link Size} if one exists or {@code null} if the camera does not offer
      * any sizes for the given format
-     *
      * @see Camera3#getAvailableImageSizes(String, int)
      */
     @Nullable
@@ -1374,13 +1386,12 @@ public final class Camera3 {
     /**
      * A utility method to <b>asynchronously</b> save an image file. The image will
      * be closed once it is saved.
-     *
+     * <p>
      * The caller must obtain permission to write to external storage (if necessary)
      * before calling this method.
      *
      * @param image the image to save
      * @param file  the file to write to
-     *
      * @see Camera3#saveImageSync(Image, File)
      */
     public void saveImageAsync(Image image, File file) {

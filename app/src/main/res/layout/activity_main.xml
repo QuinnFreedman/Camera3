@@ -48,6 +48,14 @@
             android:layout_height="wrap_content"
             android:text="Start Recording"/>
 
+        <ToggleButton
+            android:id="@+id/btn_toggle_torch"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textOn="Torch: On"
+            android:textOff="Torch: Off"/>
+
+
     </LinearLayout>
 
     <Button
