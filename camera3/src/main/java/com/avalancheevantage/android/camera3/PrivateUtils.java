@@ -37,7 +37,7 @@ class PrivateUtils {
         try {
             Objects.requireNonNull(o, message);
         } catch (NullPointerException e) {
-            errorHandler.error(message, null);
+            errorHandler.error(message, e);
             return true;
         }
         return false;

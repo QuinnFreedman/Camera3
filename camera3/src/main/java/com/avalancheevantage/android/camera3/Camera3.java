@@ -334,39 +334,6 @@ public final class Camera3 {
 
     };
 
-    /*
-    private BlockingQueue<CaptureRequestConfiguration> scheduledConfigUpdates =
-            new LinkedBlockingDeque<>();
-
-    public void applyPreviewEffect(@NonNull CaptureRequestConfiguration config) {
-        // Update preview request
-        config.configure(mPreviewRequestBuilder);
-        mPreviewRequest = mPreviewRequestBuilder.build();
-
-        if (mState == CameraState.PREVIEW) {
-            mErrorHandler.info("Updating preview");
-            try {
-                mCaptureSession.setRepeatingRequest(mPreviewRequest,
-                        mCaptureCallback, mBackgroundHandler);
-            } catch (CameraAccessException e) {
-                reportCameraAccessException(e);
-            }
-        } else {
-            mErrorHandler.info("Preview onUpdated requested. The camera is in the" +
-                    "middle of completing some other request right now. The update" +
-                    "should be made as soon as preview resumes");
-            try {
-                scheduledConfigUpdates.put(config);
-            } catch (InterruptedException e) {
-                mErrorHandler.error("Interrupted while enqueuing preview " +
-                        "update in blocking queue", e);
-            }
-        }
-
-    }
-    */
-
-
     /**
      * Creates a new Camera3 manager instance. Only one such manager should have to exist
      * per {@link Activity}. Many different preview sessions, capture sessions, and capture
@@ -1033,12 +1000,17 @@ public final class Camera3 {
                                 @Override
                                 public void onUpdated(PreviewHandler thisHandler) {
                                     if (mState == CameraState.PREVIEW) {
+                                        if (requireNotNull(mCameraDevice,
+                                                "Internal Error: mCameraDevice is null")) {
+                                            return;
+                                        }
                                         try {
                                             mPreviewRequestBuilder =
                                                     thisHandler.configureCaptureRequest(
                                                             mCameraDevice, mErrorHandler);
+                                            mPreviewRequest = mPreviewRequestBuilder.build();
                                             mCaptureSession.setRepeatingRequest(
-                                                    mPreviewRequestBuilder.build(),
+                                                    mPreviewRequest,
                                                     mCaptureCallback, mBackgroundHandler);
                                         } catch (CameraAccessException e) {
                                             reportCameraAccessException(e);
