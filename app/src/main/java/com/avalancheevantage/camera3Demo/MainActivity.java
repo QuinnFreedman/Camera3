@@ -6,6 +6,7 @@ import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.graphics.ImageFormat;
 import android.hardware.camera2.CameraAccessException;
+import android.hardware.camera2.CaptureRequest;
 import android.media.Image;
 import android.net.Uri;
 import android.os.Build;
@@ -22,9 +23,11 @@ import android.widget.Button;
 import android.widget.CompoundButton;
 import android.widget.Switch;
 import android.widget.Toast;
+import android.widget.ToggleButton;
 
 import com.avalancheevantage.android.camera3.AutoFitTextureView;
 import com.avalancheevantage.android.camera3.Camera3;
+import com.avalancheevantage.android.camera3.CaptureRequestConfiguration;
 import com.avalancheevantage.android.camera3.OnImageAvailableListener;
 import com.avalancheevantage.android.camera3.PreviewHandler;
 import com.avalancheevantage.android.camera3.StillCaptureHandler;
@@ -159,7 +162,7 @@ public class MainActivity extends AppCompatActivity {
         previewTexture.setFill(AutoFitTextureView.STYLE_FILL);
 
         // Handler to control everything about the preview
-        PreviewHandler previewHandler = new PreviewHandler(
+        final PreviewHandler previewHandler = new PreviewHandler(
                 // The preview will automatically be rendered to this texture
                 previewTexture,
                 // No preferred size
@@ -206,6 +209,7 @@ public class MainActivity extends AppCompatActivity {
                                     lastCapture.delete();
                                 }
                                 lastCapture = createMediaFile("jpg");
+                                lastCapture.deleteOnExit();
                                 cameraManager.saveImageAsync(image, lastCapture);
                                 return ImageAction.KEEP_IMAGE_OPEN;
                             }
@@ -219,8 +223,20 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View v) {
                 cameraManager.captureImage(captureSession,
-                        Camera3.PRECAPTURE_CONFIG_TRIGGER_AUTO_EXPOSE,
-                        Camera3.CAPTURE_CONFIG_DEFAULT);
+                        new CaptureRequestConfiguration() {
+                            @Override
+                            public void configure(CaptureRequest.Builder request) {
+                                request.set(CaptureRequest.CONTROL_AE_PRECAPTURE_TRIGGER,
+                                        CaptureRequest.CONTROL_AE_PRECAPTURE_TRIGGER_START);
+                            }
+                        },
+                        new CaptureRequestConfiguration() {
+                            @Override
+                            public void configure(CaptureRequest.Builder request) {
+                                request.set(CaptureRequest.CONTROL_AE_MODE,
+                                        CaptureRequest.CONTROL_AE_MODE_ON);
+                            }
+                        });
             }
         });
 
@@ -245,6 +261,7 @@ public class MainActivity extends AppCompatActivity {
                                         lastCapture.delete();
                                     }
                                     lastCapture = outputFile;
+                                    lastCapture.deleteOnExit();
                                 }
                             });
                 } else {
@@ -268,6 +285,22 @@ public class MainActivity extends AppCompatActivity {
                     intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
                     startActivity(intent);
                 }
+            }
+        });
+        ToggleButton toggleTorch = findViewById(R.id.btn_toggle_torch);
+        toggleTorch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton buttonView, final boolean isChecked) {
+                    previewHandler.updateRequestConfig(new CaptureRequestConfiguration() {
+                        @Override
+                        public void configure(CaptureRequest.Builder request) {
+                            if (isChecked) {
+                                request.set(CaptureRequest.FLASH_MODE, CaptureRequest.FLASH_MODE_TORCH);
+                            } else {
+                                request.set(CaptureRequest.FLASH_MODE, CaptureRequest.FLASH_MODE_OFF);
+                            }
+                        }
+                    });
             }
         });
     }
