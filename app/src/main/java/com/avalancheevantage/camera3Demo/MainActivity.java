@@ -209,6 +209,7 @@ public class MainActivity extends AppCompatActivity {
                                     lastCapture.delete();
                                 }
                                 lastCapture = createMediaFile("jpg");
+                                lastCapture.deleteOnExit();
                                 cameraManager.saveImageAsync(image, lastCapture);
                                 return ImageAction.KEEP_IMAGE_OPEN;
                             }
@@ -227,10 +228,6 @@ public class MainActivity extends AppCompatActivity {
                             public void configure(CaptureRequest.Builder request) {
                                 request.set(CaptureRequest.CONTROL_AE_PRECAPTURE_TRIGGER,
                                         CaptureRequest.CONTROL_AE_PRECAPTURE_TRIGGER_START);
-                                request.set(CaptureRequest.CONTROL_AE_MODE,
-                                        CaptureRequest.CONTROL_AE_MODE_ON);
-                                request.set(CaptureRequest.FLASH_MODE,
-                                        CaptureRequest.FLASH_MODE_TORCH);
                             }
                         },
                         new CaptureRequestConfiguration() {
@@ -264,6 +261,7 @@ public class MainActivity extends AppCompatActivity {
                                         lastCapture.delete();
                                     }
                                     lastCapture = outputFile;
+                                    lastCapture.deleteOnExit();
                                 }
                             });
                 } else {
@@ -290,21 +288,21 @@ public class MainActivity extends AppCompatActivity {
             }
         });
         ToggleButton toggleTorch = findViewById(R.id.btn_toggle_torch);
-//        toggleTorch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-//            @Override
-//            public void onCheckedChanged(CompoundButton buttonView, final boolean isChecked) {
-//                    previewHandler.applyTemporaryEffect(new CaptureRequestConfiguration() {
-//                        @Override
-//                        public void configure(CaptureRequest.Builder request) {
-//                            if (isChecked) {
-//                                request.set(CaptureRequest.FLASH_MODE, CaptureRequest.FLASH_MODE_TORCH);
-//                            } else {
-//                                request.set(CaptureRequest.FLASH_MODE, CaptureRequest.FLASH_MODE_OFF);
-//                            }
-//                        }
-//                    });
-//            }
-//        });
+        toggleTorch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton buttonView, final boolean isChecked) {
+                    previewHandler.updateRequestConfig(new CaptureRequestConfiguration() {
+                        @Override
+                        public void configure(CaptureRequest.Builder request) {
+                            if (isChecked) {
+                                request.set(CaptureRequest.FLASH_MODE, CaptureRequest.FLASH_MODE_TORCH);
+                            } else {
+                                request.set(CaptureRequest.FLASH_MODE, CaptureRequest.FLASH_MODE_OFF);
+                            }
+                        }
+                    });
+            }
+        });
     }
 
     @Override

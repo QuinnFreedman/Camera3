@@ -88,14 +88,6 @@ public final class Camera3 {
 
                 }
             };
-    //    public static final CaptureRequestConfiguration CAPTURE_CONFIG_AE_FLASH =
-//        new CaptureRequestConfiguration() {
-//            @Override
-//            public void configure(CaptureRequest.Builder request) {
-//                request.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON);
-//                request.set(CaptureRequest.FLASH_MODE, CaptureRequest.FLASH_MODE_SINGLE);
-//            }
-//        };
     public static final ErrorHandler ERROR_HANDLER_DEFAULT = null;
     /**
      * Max preview width that is guaranteed by Camera2 API
@@ -1000,9 +992,6 @@ public final class Camera3 {
         }
 
         previewHandler.init(mErrorHandler);
-        mPreviewRequestBuilder =
-                previewHandler.configureCaptureRequest(mCameraDevice, mErrorHandler);
-
 
         // Create a CameraCaptureSession for camera preview.
         List<Surface> targetSurfaces = new ArrayList<>(Collections.singletonList(previewHandler.getTargetSurface()));
@@ -1024,15 +1013,14 @@ public final class Camera3 {
                             // When the session is ready, we start displaying the preview.
                             mCaptureSession = cameraCaptureSession;
 
-                            //previewHandler.getRequestConfig() will never be null at this point
-                            if (!previewHandler.usesCustomRequest()) {
-                                // Auto focus should be continuous for camera preview.
-                                mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_MODE,
-                                        CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
-                            }
-                            mPreviewRequest = mPreviewRequestBuilder.build();
-
                             try {
+                                // We wait to do this till no so that if the user updates the
+                                // preview config right away those changes get used
+                                mPreviewRequestBuilder =
+                                        previewHandler.configureCaptureRequest(mCameraDevice, mErrorHandler);
+
+                                mPreviewRequest = mPreviewRequestBuilder.build();
+
                                 // Finally, we start displaying the camera preview.
                                 mCaptureSession.setRepeatingRequest(mPreviewRequest,
                                         mCaptureCallback, mBackgroundHandler);
@@ -1040,6 +1028,24 @@ public final class Camera3 {
                             } catch (CameraAccessException e) {
                                 reportCameraAccessException(e);
                             }
+
+                            previewHandler.setListener(new PreviewHandler.ConfigUpdatedListener() {
+                                @Override
+                                public void onUpdated(PreviewHandler thisHandler) {
+                                    if (mState == CameraState.PREVIEW) {
+                                        try {
+                                            mPreviewRequestBuilder =
+                                                    thisHandler.configureCaptureRequest(
+                                                            mCameraDevice, mErrorHandler);
+                                            mCaptureSession.setRepeatingRequest(
+                                                    mPreviewRequestBuilder.build(),
+                                                    mCaptureCallback, mBackgroundHandler);
+                                        } catch (CameraAccessException e) {
+                                            reportCameraAccessException(e);
+                                        }
+                                    }
+                                }
+                            });
                         }
 
                         @Override

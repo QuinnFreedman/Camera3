@@ -12,8 +12,6 @@ import android.view.TextureView;
 
 import org.jetbrains.annotations.Contract;
 
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 import static com.avalancheevantage.android.camera3.PrivateUtils.checkNull;
@@ -32,7 +30,7 @@ final public class PreviewHandler {
     @Nullable
     private TextureView previewTextureView = null;
     @Nullable
-    private final CaptureRequestConfiguration requestConfig;
+    private CaptureRequestConfiguration requestConfig;
     @Nullable
     private final Camera3.PreviewSizeCallback previewSizeSelected;
     @Nullable
@@ -41,38 +39,63 @@ final public class PreviewHandler {
     private SurfaceTexture previewSurface = null;
     @Nullable
     private Surface targetSurface;
+    @Nullable
+    private ConfigUpdatedListener listener;
 
+    //actual size of the capture request (from list of available sizes)
+    private Size previewSize;
+
+
+    @Contract(pure = true)
     @Nullable
     /*package private*/ Surface getTargetSurface() {
         return targetSurface;
     }
 
-    //actual size of the capture request (from list of available sizes)
-    private Size previewSize;
+    /*package private*/ void setListener(@Nullable ConfigUpdatedListener listener) {
+        this.listener = listener;
+    }
 
     @Contract(pure = true)
     @Nullable
-    TextureView getTextureView() {
+    /*package private*/ TextureView getTextureView() {
         return previewTextureView;
     }
 
     @Contract(pure = true)
     @Nullable
-    Camera3.PreviewSizeCallback getPreviewSizeSelectedCallback() {
+    /*package private*/ Camera3.PreviewSizeCallback getPreviewSizeSelectedCallback() {
         return previewSizeSelected;
     }
 
-    void setPreviewSize(Size previewSize) {
+    /*package private*/ void setPreviewSize(@NonNull Size previewSize) {
         this.previewSize = previewSize;
     }
 
     @Contract(pure = true)
-    Size getPreviewSize() {
+    /*package private*/ Size getPreviewSize() {
         return previewSize;
     }
 
+    /**
+     * Sets the preview config to the new value. If the preview is running,
+     * it will be updated live.
+     *
+     * This fully replaces the old preview config, so it should include any
+     * special configuration you want in your preview, not just the changes.
+     *
+     * @param newConfig the new preview configuration to use
+     */
+    public void updateRequestConfig(CaptureRequestConfiguration newConfig) {
+        this.requestConfig = newConfig;
+        if (this.listener != null) {
+            this.listener.onUpdated(this);
+        }
+    }
 
-    //Surface constructors
+    /* ***************************/
+    /* Surface constructors      */
+    /* ***************************/
 
     /**
      * @see PreviewHandler#PreviewHandler(SurfaceTexture, Size, CaptureRequestConfiguration, Camera3.PreviewSizeCallback)
@@ -125,7 +148,9 @@ final public class PreviewHandler {
         this.previewSizeSelected = previewSizeSelected;
     }
 
-    //TextureView constructors
+    /* ***************************/
+    /* TextureView constructors  */
+    /* ***************************/
 
     /**
      * @see PreviewHandler#PreviewHandler(TextureView, Size, CaptureRequestConfiguration,
@@ -189,6 +214,12 @@ final public class PreviewHandler {
         this.previewSizeSelected = previewSizeSelected;
     }
 
+    /**
+     * Must be called before {@link #configureCaptureRequest(CameraDevice, ErrorHandler)},
+     * but only needs to be called once.
+     *
+     * @param e the error handler to report errors on
+     */
     /*package private*/ void init(ErrorHandler e) {
         Size previewSize = this.getPreviewSize();
         if (checkNull(previewSize,
@@ -208,17 +239,18 @@ final public class PreviewHandler {
 
     }
 
-    @Nullable
+    @NonNull
     /*package private*/
     CaptureRequest.Builder configureCaptureRequest(@NonNull CameraDevice cameraDevice,
-                                                   @NonNull ErrorHandler errorHandler) {
-        CaptureRequest.Builder builder;
-        try {
-            builder = cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
-        } catch (CameraAccessException e) {
-            PrivateUtils.reportCameraAccessException(e, errorHandler);
-            return null;
-        }
+                                                   @NonNull ErrorHandler errorHandler)
+            throws CameraAccessException {
+        CaptureRequest.Builder builder =
+                cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
+
+        // Auto focus should be continuous for camera preview.
+        builder.set(CaptureRequest.CONTROL_AF_MODE,
+                CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
+
         if (this.requestConfig != null) {
             this.requestConfig.configure(builder);
         }
@@ -255,5 +287,9 @@ final public class PreviewHandler {
             assert previewSurface != null;
             return previewSurface;
         }
+    }
+
+    interface ConfigUpdatedListener {
+        void onUpdated(PreviewHandler thisHandler);
     }
 }

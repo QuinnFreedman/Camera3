@@ -263,6 +263,7 @@ class PrivateUtils {
      * @param aspectRatio       The aspect ratio
      * @return The optimal {@code Size}, or an arbitrary one if none were big enough
      */
+    @NonNull
     private static Size chooseOptimalSize(@NonNull Size[] choices,
                                           int textureViewWidth, int textureViewHeight,
                                           int maxWidth, int maxHeight,
